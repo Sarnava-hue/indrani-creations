@@ -1,0 +1,315 @@
+// use prisma-8
+// Contract inferred from the live database schema. Edit as needed, then run `prisma contract emit`.
+
+model User {
+  id            Int            @id(map: "user_pkey") @default(autoincrement())
+  createdAt     Timestamptz    @default(now())
+  email         String         @unique(map: "user_email_key")
+  name          String?
+  passwordHash  String
+  phone         String?
+  role          String         @default("CUSTOMER")
+  updatedAt     Timestamptz
+  addresses     Address[]
+  cart          Cart?
+  orders        Order[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+
+  @@index([role], name: "user_role_idx")
+  @@check(expression: "(role = ANY (ARRAY['CUSTOMER'::text, 'ADMIN'::text]))", map: "user_role_check_3cc42c46")
+  @@map("user")
+}
+
+model Address {
+  id            Int         @id(map: "address_pkey") @default(autoincrement())
+  city          String
+  countryCode   String      @default("IN")
+  createdAt     Timestamptz @default(now())
+  label         String
+  line1         String
+  line2         String?
+  phone         String
+  postalCode    String
+  recipientName String
+  state         String
+  updatedAt     Timestamptz
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id], map: "address_userId_fkey")
+
+  @@index([userId], name: "address_userId_idx")
+  @@map("address")
+}
+
+model Cart {
+  id        Int         @id(map: "cart_pkey") @default(autoincrement())
+  createdAt Timestamptz @default(now())
+  updatedAt Timestamptz
+  userId    Int         @unique(map: "cart_userId_key")
+  cartItems CartItem[]
+  user      User        @relation(fields: [userId], references: [id], map: "cart_userId_fkey")
+
+  @@map("cart")
+}
+
+model Category {
+  id          Int         @id(map: "category_pkey") @default(autoincrement())
+  createdAt   Timestamptz @default(now())
+  description String?
+  imageUrl    String?
+  isActive    Boolean     @default(true)
+  name        String
+  parentId    Int?
+  slug        String      @unique(map: "category_slug_key")
+  sortOrder   Int         @default(0)
+  updatedAt   Timestamptz
+  products    Product[]
+  parent      Category?   @relation(name: "category_parentId_fkey", fields: [parentId], references: [id], map: "category_parentId_fkey")
+  categories  Category[]  @relation(name: "category_parentId_fkey")
+
+  @@index([isActive, sortOrder], name: "category_isActive_sortOrder_idx")
+  @@index([parentId], name: "category_parentId_idx")
+  @@map("category")
+}
+
+model Product {
+  id                  Int            @id(map: "product_pkey") @default(autoincrement())
+  blouseDetails       String?
+  blouseIncluded      Boolean        @default(false)
+  careInstructions    String?
+  categoryId          Int
+  color               String?
+  compareAtPricePaise Int?
+  createdAt           Timestamptz    @default(now())
+  description         String?
+  fabric              String?
+  isActive            Boolean        @default(true)
+  isFeatured          Boolean        @default(false)
+  isOneOfOne          Boolean        @default(true)
+  name                String
+  occasion            String?
+  pattern             String?
+  pricePaise          Int
+  sareeLength         String?
+  shortDescription    String?
+  sku                 String         @unique(map: "product_sku_key")
+  slug                String         @unique(map: "product_slug_key")
+  updatedAt           Timestamptz
+  cartItems           CartItem[]
+  inventory           Inventory?
+  orderItems          OrderItem[]
+  productImages       ProductImage[]
+  reviews             Review[]
+  wishlistItems       WishlistItem[]
+  category            Category       @relation(fields: [categoryId], references: [id], map: "product_categoryId_fkey")
+
+  @@index([categoryId], name: "product_categoryId_idx")
+  @@index([createdAt], name: "product_createdAt_idx")
+  @@index([isActive], name: "product_isActive_idx")
+  @@index([isFeatured], name: "product_isFeatured_idx")
+  @@map("product")
+}
+
+model CartItem {
+  id        Int         @id(map: "cartItem_pkey") @default(autoincrement())
+  cartId    Int
+  createdAt Timestamptz @default(now())
+  productId Int
+  quantity  Int         @default(1)
+  updatedAt Timestamptz
+  cart      Cart        @relation(fields: [cartId], references: [id], map: "cartItem_cartId_fkey")
+  product   Product     @relation(fields: [productId], references: [id], map: "cartItem_productId_fkey")
+
+  @@unique([cartId, productId], map: "cartItem_cartId_productId_key")
+  @@index([cartId], name: "cartItem_cartId_idx")
+  @@index([productId], name: "cartItem_productId_idx")
+  @@map("cartItem")
+}
+
+model Coupon {
+  id                   Int          @id(map: "coupon_pkey") @default(autoincrement())
+  code                 String       @unique(map: "coupon_code_key")
+  createdAt            Timestamptz  @default(now())
+  discountType         String
+  discountValue        Int
+  expiresAt            Timestamptz?
+  isActive             Boolean      @default(true)
+  maximumDiscountPaise Int?
+  minimumOrderPaise    Int?
+  perUserLimit         Int?
+  startsAt             Timestamptz?
+  updatedAt            Timestamptz
+  usageCount           Int          @default(0)
+  usageLimit           Int?
+  orders               Order[]
+
+  @@index([expiresAt], name: "coupon_expiresAt_idx")
+  @@index([isActive], name: "coupon_isActive_idx")
+  @@check(expression: "(\"discountType\" = ANY (ARRAY['PERCENTAGE'::text, 'FIXED_AMOUNT'::text]))", map: "coupon_discountType_check_61e0971f")
+  @@map("coupon")
+}
+
+model Inventory {
+  id        Int         @id(map: "inventory_pkey") @default(autoincrement())
+  createdAt Timestamptz @default(now())
+  productId Int         @unique(map: "inventory_productId_key")
+  quantity  Int         @default(0)
+  reserved  Int         @default(0)
+  updatedAt Timestamptz
+  product   Product     @relation(fields: [productId], references: [id], map: "inventory_productId_fkey")
+
+  @@map("inventory")
+}
+
+model Order {
+  id                    Int         @id(map: "order_pkey") @default(autoincrement())
+  couponId              Int?
+  createdAt             Timestamptz @default(now())
+  currency              String      @default("INR")
+  customerNote          String?
+  discountPaise         Int         @default(0)
+  orderNumber           String      @unique(map: "order_orderNumber_key")
+  paymentStatus         String      @default("PENDING")
+  shippingCity          String
+  shippingCountryCode   String      @default("IN")
+  shippingLine1         String
+  shippingLine2         String?
+  shippingPaise         Int         @default(0)
+  shippingPhone         String
+  shippingPostalCode    String
+  shippingRecipientName String
+  shippingState         String
+  shippingStatus        String      @default("PENDING")
+  status                String      @default("PENDING")
+  subtotalPaise         Int
+  taxPaise              Int         @default(0)
+  totalPaise            Int
+  updatedAt             Timestamptz
+  userId                Int?
+  customerEmail         String      @default("")
+  orderItems            OrderItem[]
+  payment               Payment?
+  shipment              Shipment?
+  coupon                Coupon?     @relation(fields: [couponId], references: [id], map: "order_couponId_fkey")
+  user                  User?       @relation(fields: [userId], references: [id], map: "order_userId_fkey")
+
+  @@index([couponId], name: "order_couponId_idx")
+  @@index([createdAt], name: "order_createdAt_idx")
+  @@index([paymentStatus], name: "order_paymentStatus_idx")
+  @@index([shippingStatus], name: "order_shippingStatus_idx")
+  @@index([status], name: "order_status_idx")
+  @@index([userId], name: "order_userId_idx")
+  @@check(expression: "(\"paymentStatus\" = ANY (ARRAY['PENDING'::text, 'AUTHORIZED'::text, 'PAID'::text, 'FAILED'::text, 'REFUNDED'::text, 'PARTIALLY_REFUNDED'::text]))", map: "order_paymentStatus_check_d0e45e8b")
+  @@check(expression: "(\"shippingStatus\" = ANY (ARRAY['PENDING'::text, 'READY_TO_SHIP'::text, 'SHIPPED'::text, 'IN_TRANSIT'::text, 'DELIVERED'::text, 'RETURNED'::text]))", map: "order_shippingStatus_check_b3898e27")
+  @@check(expression: "(status = ANY (ARRAY['PENDING'::text, 'CONFIRMED'::text, 'PROCESSING'::text, 'PACKED'::text, 'SHIPPED'::text, 'DELIVERED'::text, 'CANCELLED'::text, 'RETURNED'::text, 'REFUNDED'::text]))", map: "order_status_check_86cc4020")
+  @@map("order")
+}
+
+model OrderItem {
+  id             Int         @id(map: "orderItem_pkey") @default(autoincrement())
+  createdAt      Timestamptz @default(now())
+  orderId        Int
+  productId      Int
+  productName    String
+  quantity       Int
+  sku            String
+  totalPaise     Int
+  unitPricePaise Int
+  order          Order       @relation(fields: [orderId], references: [id], map: "orderItem_orderId_fkey")
+  product        Product     @relation(fields: [productId], references: [id], map: "orderItem_productId_fkey")
+
+  @@index([orderId], name: "orderItem_orderId_idx")
+  @@index([productId], name: "orderItem_productId_idx")
+  @@map("orderItem")
+}
+
+model Payment {
+  id                Int          @id(map: "payment_pkey") @default(autoincrement())
+  amountPaise       Int
+  createdAt         Timestamptz  @default(now())
+  currency          String       @default("INR")
+  failureCode       String?
+  failureNote       String?
+  orderId           Int          @unique(map: "payment_orderId_key")
+  paidAt            Timestamptz?
+  provider          String
+  providerPaymentId String?
+  status            String       @default("PENDING")
+  updatedAt         Timestamptz
+  order             Order        @relation(fields: [orderId], references: [id], map: "payment_orderId_fkey")
+
+  @@index([providerPaymentId], name: "payment_providerPaymentId_idx")
+  @@index([status], name: "payment_status_idx")
+  @@check(expression: "(status = ANY (ARRAY['PENDING'::text, 'AUTHORIZED'::text, 'PAID'::text, 'FAILED'::text, 'REFUNDED'::text, 'PARTIALLY_REFUNDED'::text]))", map: "payment_status_check_c6292004")
+  @@map("payment")
+}
+
+model ProductImage {
+  id        Int         @id(map: "productImage_pkey") @default(autoincrement())
+  altText   String?
+  createdAt Timestamptz @default(now())
+  isPrimary Boolean     @default(false)
+  productId Int
+  sortOrder Int         @default(0)
+  url       String
+  product   Product     @relation(fields: [productId], references: [id], map: "productImage_productId_fkey")
+
+  @@index([productId], name: "productImage_productId_idx")
+  @@index([productId, sortOrder], name: "productImage_productId_sortOrder_idx")
+  @@map("productImage")
+}
+
+model Review {
+  id        Int         @id(map: "review_pkey") @default(autoincrement())
+  comment   String?
+  createdAt Timestamptz @default(now())
+  productId Int
+  rating    Int
+  status    String      @default("PENDING")
+  title     String?
+  updatedAt Timestamptz
+  userId    Int
+  product   Product     @relation(fields: [productId], references: [id], map: "review_productId_fkey")
+  user      User        @relation(fields: [userId], references: [id], map: "review_userId_fkey")
+
+  @@unique([userId, productId], map: "review_userId_productId_key")
+  @@index([productId], name: "review_productId_idx")
+  @@index([productId, status], name: "review_productId_status_idx")
+  @@index([userId], name: "review_userId_idx")
+  @@check(expression: "(status = ANY (ARRAY['PENDING'::text, 'APPROVED'::text, 'REJECTED'::text]))", map: "review_status_check_56005a61")
+  @@map("review")
+}
+
+model Shipment {
+  id                 Int          @id(map: "shipment_pkey") @default(autoincrement())
+  createdAt          Timestamptz  @default(now())
+  deliveredAt        Timestamptz?
+  orderId            Int          @unique(map: "shipment_orderId_key")
+  provider           String?
+  providerShipmentId String?
+  shippedAt          Timestamptz?
+  status             String       @default("PENDING")
+  trackingNumber     String?
+  trackingUrl        String?
+  updatedAt          Timestamptz
+  order              Order        @relation(fields: [orderId], references: [id], map: "shipment_orderId_fkey")
+
+  @@index([status], name: "shipment_status_idx")
+  @@index([trackingNumber], name: "shipment_trackingNumber_idx")
+  @@check(expression: "(status = ANY (ARRAY['PENDING'::text, 'READY_TO_SHIP'::text, 'SHIPPED'::text, 'IN_TRANSIT'::text, 'DELIVERED'::text, 'RETURNED'::text]))", map: "shipment_status_check_b01c5717")
+  @@map("shipment")
+}
+
+model WishlistItem {
+  id        Int         @id(map: "wishlistItem_pkey") @default(autoincrement())
+  createdAt Timestamptz @default(now())
+  productId Int
+  userId    Int
+  product   Product     @relation(fields: [productId], references: [id], map: "wishlistItem_productId_fkey")
+  user      User        @relation(fields: [userId], references: [id], map: "wishlistItem_userId_fkey")
+
+  @@unique([userId, productId], map: "wishlistItem_userId_productId_key")
+  @@index([productId], name: "wishlistItem_productId_idx")
+  @@index([userId], name: "wishlistItem_userId_idx")
+  @@map("wishlistItem")
+}

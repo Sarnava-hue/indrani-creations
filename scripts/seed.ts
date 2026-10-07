@@ -10,7 +10,8 @@ const categories = [
   {
     name: "Handloom Sarees",
     slug: "handloom-sarees",
-    description: "Beautiful handwoven sarees celebrating traditional craftsmanship.",
+    description:
+      "Beautiful handwoven sarees celebrating traditional craftsmanship.",
     sortOrder: 2,
   },
   {
@@ -30,6 +31,26 @@ const categories = [
     slug: "new-arrivals",
     description: "The latest additions to the Indrani Creations collection.",
     sortOrder: 5,
+  },
+  {
+    name: "Artisanal Bangles",
+    slug: "bangles",
+    description:
+      "Handcrafted bangles, traditional details and expressive color.",
+    sortOrder: 6,
+  },
+  {
+    name: "Earrings",
+    slug: "earrings",
+    description:
+      "Oxidized, traditional and contemporary earrings for every occasion.",
+    sortOrder: 7,
+  },
+  {
+    name: "Necklaces",
+    slug: "necklaces",
+    description: "Traditional and statement necklaces to complete your look.",
+    sortOrder: 8,
   },
 ];
 
@@ -83,7 +104,8 @@ const products = [
     slug: "bengal-morning-handloom-saree",
     sku: "IC-HL-001",
     categorySlug: "handloom-sarees",
-    shortDescription: "A breathable handloom saree inspired by Bengal craftsmanship.",
+    shortDescription:
+      "A breathable handloom saree inspired by Bengal craftsmanship.",
     description:
       "A lightweight handwoven saree with a refined texture and understated elegance.",
     pricePaise: 349900,
@@ -105,7 +127,8 @@ const products = [
     slug: "rosewood-tant-saree",
     sku: "IC-COTTON-001",
     categorySlug: "cotton-sarees",
-    shortDescription: "A lightweight Bengali-style cotton saree in a warm palette.",
+    shortDescription:
+      "A lightweight Bengali-style cotton saree in a warm palette.",
     description:
       "A comfortable cotton saree designed for effortless daytime elegance.",
     pricePaise: 229900,
@@ -210,6 +233,76 @@ const products = [
     isOneOfOne: true,
     isFeatured: true,
   },
+
+  {
+    name: "Antique Gold Artisanal Bangles",
+    slug: "antique-gold-artisanal-bangles",
+    sku: "IC-BAN-001",
+    categorySlug: "bangles",
+    shortDescription:
+      "A traditional gold-tone bangle set with an antique finish.",
+    description:
+      "An elegant statement bangle set designed to complement festive outfits and traditional occasion wear.",
+    pricePaise: 129900,
+    compareAtPricePaise: 159900,
+    fabric: "Gold-tone metal",
+    color: "Antique Gold",
+    occasion: "Festive",
+    pattern: "Traditional",
+    sareeLength: null,
+    blouseIncluded: false,
+    blouseDetails: null,
+    careInstructions: "Keep away from water, perfume and moisture.",
+    quantity: 12,
+    isOneOfOne: false,
+    isFeatured: true,
+  },
+  {
+    name: "Oxidized Floral Drop Earrings",
+    slug: "oxidized-floral-drop-earrings",
+    sku: "IC-EAR-001",
+    categorySlug: "earrings",
+    shortDescription: "Oxidized silver-tone earrings with a floral motif.",
+    description:
+      "A versatile pair of floral drop earrings with a traditional oxidized finish, suitable for everyday styling and celebrations.",
+    pricePaise: 79900,
+    compareAtPricePaise: 99900,
+    fabric: "Oxidized metal",
+    color: "Antique Silver",
+    occasion: "Everyday",
+    pattern: "Floral",
+    sareeLength: null,
+    blouseIncluded: false,
+    blouseDetails: null,
+    careInstructions:
+      "Store in a dry place and avoid direct contact with water.",
+    quantity: 15,
+    isOneOfOne: false,
+    isFeatured: true,
+  },
+  {
+    name: "Heritage Temple Pendant Necklace",
+    slug: "heritage-temple-pendant-necklace",
+    sku: "IC-NEC-001",
+    categorySlug: "necklaces",
+    shortDescription:
+      "A traditional temple-inspired necklace with a statement pendant.",
+    description:
+      "A heritage-inspired necklace designed to bring a traditional finishing touch to festive and occasion outfits.",
+    pricePaise: 189900,
+    compareAtPricePaise: 229900,
+    fabric: "Gold-tone metal",
+    color: "Antique Gold",
+    occasion: "Celebration",
+    pattern: "Temple",
+    sareeLength: null,
+    blouseIncluded: false,
+    blouseDetails: null,
+    careInstructions: "Keep dry and store separately to protect the finish.",
+    quantity: 8,
+    isOneOfOne: false,
+    isFeatured: true,
+  },
 ];
 
 async function seed() {
@@ -237,6 +330,7 @@ async function seed() {
           sortOrder: category.sortOrder,
           isActive: true,
         },
+        conflictOn: { slug: category.slug },
       });
 
       categoryMap.set(category.slug, saved.id);
@@ -250,9 +344,7 @@ async function seed() {
       const categoryId = categoryMap.get(product.categorySlug);
 
       if (!categoryId) {
-        throw new Error(
-          `Category not found: ${product.categorySlug}`,
-        );
+        throw new Error(`Category not found: ${product.categorySlug}`);
       }
 
       const savedProduct = await tx.orm.public.Product.upsert({
@@ -296,6 +388,7 @@ async function seed() {
           isActive: true,
           isFeatured: product.isFeatured,
         },
+        conflictOn: { slug: product.slug },
       });
 
       await tx.orm.public.Inventory.upsert({
@@ -307,17 +400,18 @@ async function seed() {
         update: {
           quantity: product.quantity,
         },
+        conflictOn: { productId: savedProduct.id },
       });
     }
   });
 
-  const categoryCount = await db.orm.public.Category
-    .where({ isActive: true })
-    .aggregate((a) => ({ total: a.count() }));
+  const categoryCount = await db.orm.public.Category.where({
+    isActive: true,
+  }).aggregate((a) => ({ total: a.count() }));
 
-  const productCount = await db.orm.public.Product
-    .where({ isActive: true })
-    .aggregate((a) => ({ total: a.count() }));
+  const productCount = await db.orm.public.Product.where({
+    isActive: true,
+  }).aggregate((a) => ({ total: a.count() }));
 
   console.log(`✓ Categories: ${categoryCount.total}`);
   console.log(`✓ Products: ${productCount.total}`);

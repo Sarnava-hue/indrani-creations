@@ -40,6 +40,10 @@
       "model": "Payment",
       "namespace": "public"
     },
+    "paymentEvent": {
+      "model": "PaymentEvent",
+      "namespace": "public"
+    },
     "product": {
       "model": "Product",
       "namespace": "public"
@@ -1535,6 +1539,13 @@
                   "kind": "scalar"
                 }
               },
+              "providerOrderId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "providerPaymentId": {
                 "nullable": true,
                 "type": {
@@ -1610,6 +1621,9 @@
                 "provider": {
                   "column": "provider"
                 },
+                "providerOrderId": {
+                  "column": "providerOrderId"
+                },
                 "providerPaymentId": {
                   "column": "providerPaymentId"
                 },
@@ -1622,6 +1636,87 @@
               },
               "namespaceId": "public",
               "table": "payment"
+            }
+          },
+          "PaymentEvent": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "eventId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "eventType": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "payload": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "paymentId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "provider": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "eventId": {
+                  "column": "eventId"
+                },
+                "eventType": {
+                  "column": "eventType"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "payload": {
+                  "column": "payload"
+                },
+                "paymentId": {
+                  "column": "paymentId"
+                },
+                "provider": {
+                  "column": "provider"
+                }
+              },
+              "namespaceId": "public",
+              "table": "paymentEvent"
             }
           },
           "Product": {
@@ -3716,6 +3811,11 @@
                   "nativeType": "text",
                   "nullable": false
                 },
+                "providerOrderId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "providerPaymentId": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -3787,6 +3887,85 @@
                 {
                   "columns": [
                     "orderId"
+                  ]
+                }
+              ]
+            },
+            "paymentEvent": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "eventId": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "eventType": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "expression": "autoincrement()",
+                    "kind": "function"
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "payload": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "paymentId": {
+                  "codecId": "pg/int4@1",
+                  "nativeType": "int4",
+                  "nullable": true
+                },
+                "provider": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "eventType"
+                  ],
+                  "name": "paymentEvent_eventType_idx_e4cf7742",
+                  "prefix": "paymentEvent_eventType_idx",
+                  "unique": false
+                },
+                {
+                  "columns": [
+                    "paymentId"
+                  ],
+                  "name": "paymentEvent_paymentId_idx_b2fe9a10",
+                  "prefix": "paymentEvent_paymentId_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "provider",
+                    "eventId"
                   ]
                 }
               ]
@@ -4631,7 +4810,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "1bd2d59388a8fe3be0b05a11f52ad616cdbcfe92a1e5b853161cc31b2f32bb58"
+    "storageHash": "b2d1c01fbc4e8b675ba59b0f54cdcd1d7ece085b9a7f42d60e4a8ec3df7f71e5"
   },
   "execution": {
     "executionHash": "83772c84750cc11bb0342829d97e5fac01dad233076d10530d04b128f4ed283f",

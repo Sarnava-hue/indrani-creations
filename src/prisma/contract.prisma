@@ -302,6 +302,7 @@ model Payment {
   orderId           Int                        @unique
 
   provider          String
+  providerOrderId   String?
   providerPaymentId String?
 
   amountPaise       Int
@@ -393,4 +394,23 @@ model Review {
 
   @@unique([userId, productId])
   @@index([productId, status])
+}
+
+model PaymentEvent {
+  id Int @id @default(autoincrement())
+
+  provider String
+  eventId  String
+
+  eventType String
+
+  paymentId Int?
+
+  payload String
+
+  createdAt TimestamptzString @default(now())
+
+  @@unique([provider, eventId])
+  @@index([paymentId])
+  @@index([eventType])
 }

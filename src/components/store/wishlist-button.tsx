@@ -16,21 +16,17 @@ export function WishlistButton({
 
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [authenticated, setAuthenticated] =
-    useState<boolean | null>(null);
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadWishlistState() {
       try {
-        const response = await fetch(
-          "/api/account/wishlist",
-          {
-            credentials: "include",
-            cache: "no-store",
-          },
-        );
+        const response = await fetch("/api/account/wishlist", {
+          credentials: "include",
+          cache: "no-store",
+        });
 
         if (response.status === 401) {
           if (!cancelled) {
@@ -44,8 +40,7 @@ export function WishlistButton({
           return;
         }
 
-        const data: unknown =
-          await response.json();
+        const data: unknown = await response.json();
 
         if (
           typeof data !== "object" ||
@@ -72,10 +67,7 @@ export function WishlistButton({
           setSaved(exists);
         }
       } catch (error) {
-        console.error(
-          "Failed to load wishlist state:",
-          error,
-        );
+        console.error("Failed to load wishlist state:", error);
       }
     }
 
@@ -96,32 +88,26 @@ export function WishlistButton({
 
       const method = saved ? "DELETE" : "POST";
 
-      const response = await fetch(
-        "/api/account/wishlist",
-        {
-          method,
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            productId,
-          }),
+      const response = await fetch("/api/account/wishlist", {
+        method,
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        credentials: "include",
+        body: JSON.stringify({
+          productId,
+        }),
+      });
 
       if (response.status === 401) {
         router.push(
-          `/login?redirect=${encodeURIComponent(
-            window.location.pathname,
-          )}`,
+          `/login?redirect=${encodeURIComponent(window.location.pathname)}`,
         );
 
         return;
       }
 
-      const data: unknown =
-        await response.json();
+      const data: unknown = await response.json();
 
       if (!response.ok) {
         const message =
@@ -138,10 +124,7 @@ export function WishlistButton({
       setAuthenticated(true);
       setSaved(!saved);
     } catch (error) {
-      console.error(
-        "Failed to update wishlist:",
-        error,
-      );
+      console.error("Failed to update wishlist:", error);
     } finally {
       setLoading(false);
     }
@@ -154,29 +137,20 @@ export function WishlistButton({
   return (
     <button
       type="button"
-      onClick={() =>
-        void handleToggleWishlist()
-      }
+      onClick={() => void handleToggleWishlist()}
       disabled={loading}
       aria-label={label}
       aria-pressed={saved}
-      className={`transition ${
-        saved
-          ? "text-[#8b5e3c]"
-          : "text-[#756d65] hover:text-[#8b5e3c]"
+      className={`!appearance-none !border-0 !bg-transparent !p-0 !shadow-none !outline-none transition ${
+        saved ? "text-[#8b5e3c]" : "text-[#756d65] hover:text-[#8b5e3c]"
       } disabled:cursor-not-allowed disabled:opacity-50`}
     >
-      <span
-        aria-hidden="true"
-        className="text-xl leading-none"
-      >
+      <span aria-hidden="true" className="block text-xl leading-none">
         {saved ? "♥" : "♡"}
       </span>
 
       {authenticated === false && (
-        <span className="sr-only">
-          Sign in to save this product.
-        </span>
+        <span className="sr-only">Sign in to save this product.</span>
       )}
     </button>
   );

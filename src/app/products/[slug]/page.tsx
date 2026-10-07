@@ -5,6 +5,7 @@ import { formatINR } from "@/lib/utils/currency";
 import { WishlistButton } from "@/components/store/wishlist-button";
 import { AddToBagButton } from "@/components/store/add-to-bag-button";
 import { ProductGallery } from "@/components/store/product-gallery";
+import { ProductCard } from "@/components/store/product-card";
 type ProductPageProps = {
   params: Promise<{
     slug: string;
@@ -121,15 +122,48 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const isAvailable = availableQuantity > 0;
 
-  const discountPercentage =
-    product.compareAtPricePaise &&
-    product.compareAtPricePaise > product.pricePaise
-      ? Math.round(
-          ((product.compareAtPricePaise - product.pricePaise) /
-            product.compareAtPricePaise) *
-            100,
+  const isSaree =
+    Boolean(product.sareeLength) || Boolean(category?.slug.includes("saree"));
+
+  const relatedCandidates = category
+    ? await db.orm.public.Product.where({
+        categoryId: product.categoryId,
+        isActive: true,
+      })
+        .select(
+          "id",
+          "name",
+          "slug",
+          "pricePaise",
+          "compareAtPricePaise",
+          "isOneOfOne",
+          "isFeatured",
         )
-      : null;
+        .all()
+    : [];
+
+  const relatedProducts = relatedCandidates
+    .filter((item) => item.id !== product.id)
+    .slice(0, 4);
+
+  const relatedProductsWithImages = await Promise.all(
+    relatedProducts.map(async (item) => {
+      const itemImages = await db.orm.public.ProductImage.where({
+        productId: item.id,
+      })
+        .select("url", "altText", "sortOrder", "isPrimary")
+        .orderBy((image) => image.sortOrder.asc())
+        .all();
+
+      const primaryItemImage =
+        itemImages.find((image) => image.isPrimary) ?? itemImages[0] ?? null;
+
+      return {
+        ...item,
+        primaryImage: primaryItemImage,
+      };
+    }),
+  );
 
   return (
     <main className="min-h-screen bg-[#f7f4ef]">
@@ -219,14 +253,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                     {formatINR(product.compareAtPricePaise)}
                   </span>
                 )}
-
-              {discountPercentage && (
-                <span className="border border-neutral-900 px-3 py-1 text-xs uppercase tracking-[0.15em]">
-                  {discountPercentage}% off
-                </span>
-              )}
             </div>
-
+            
             {/* Availability */}
 
             <div className="mt-6 flex items-center gap-3">
@@ -271,6 +299,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
             {/* Product details */}
 
             <div className="mt-12 border-t border-black/10">
+              {/* SKU */}
+
               <div className="grid grid-cols-2 border-b border-black/10 py-5">
                 <span className="text-xs uppercase tracking-[0.18em] text-neutral-500">
                   SKU
@@ -279,10 +309,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 <span className="text-sm text-neutral-800">{product.sku}</span>
               </div>
 
+              {/* Fabric / Material */}
+
               {product.fabric && (
                 <div className="grid grid-cols-2 border-b border-black/10 py-5">
                   <span className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-                    Fabric
+                    {isSaree ? "Fabric" : "Material"}
                   </span>
 
                   <span className="text-sm text-neutral-800">
@@ -290,6 +322,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   </span>
                 </div>
               )}
+
+              {/* Colour */}
 
               {product.color && (
                 <div className="grid grid-cols-2 border-b border-black/10 py-5">
@@ -303,6 +337,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </div>
               )}
 
+              {/* Pattern */}
+
               {product.pattern && (
                 <div className="grid grid-cols-2 border-b border-black/10 py-5">
                   <span className="text-xs uppercase tracking-[0.18em] text-neutral-500">
@@ -314,6 +350,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   </span>
                 </div>
               )}
+
+              {/* Occasion */}
 
               {product.occasion && (
                 <div className="grid grid-cols-2 border-b border-black/10 py-5">
@@ -327,29 +365,35 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 </div>
               )}
 
-              {product.sareeLength && (
-                <div className="grid grid-cols-2 border-b border-black/10 py-5">
-                  <span className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-                    Length
-                  </span>
+              {/* Saree-specific details */}
 
-                  <span className="text-sm text-neutral-800">
-                    {product.sareeLength}
-                  </span>
-                </div>
+              {isSaree && (
+                <>
+                  {product.sareeLength && (
+                    <div className="grid grid-cols-2 border-b border-black/10 py-5">
+                      <span className="text-xs uppercase tracking-[0.18em] text-neutral-500">
+                        Length
+                      </span>
+
+                      <span className="text-sm text-neutral-800">
+                        {product.sareeLength}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 border-b border-black/10 py-5">
+                    <span className="text-xs uppercase tracking-[0.18em] text-neutral-500">
+                      Blouse
+                    </span>
+
+                    <span className="text-sm text-neutral-800">
+                      {product.blouseIncluded
+                        ? (product.blouseDetails ?? "Included")
+                        : "Not included"}
+                    </span>
+                  </div>
+                </>
               )}
-
-              <div className="grid grid-cols-2 border-b border-black/10 py-5">
-                <span className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-                  Blouse
-                </span>
-
-                <span className="text-sm text-neutral-800">
-                  {product.blouseIncluded
-                    ? (product.blouseDetails ?? "Included")
-                    : "Not included"}
-                </span>
-              </div>
             </div>
 
             {/* Description */}
@@ -357,7 +401,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             {product.description && (
               <div className="mt-12">
                 <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">
-                  About the saree
+                  About this piece
                 </p>
 
                 <p className="mt-5 text-sm leading-7 text-neutral-600">
@@ -381,6 +425,36 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
           </div>
         </div>
+        {relatedProductsWithImages.length > 0 && (
+          <div className="mt-24 border-t border-black/10 pt-16">
+            <div className="mb-10 flex items-end justify-between gap-6">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">
+                  You may also like
+                </p>
+
+                <h2 className="mt-3 text-3xl font-light tracking-tight text-neutral-900">
+                  More from this collection
+                </h2>
+              </div>
+
+              {category && (
+                <Link
+                  href={`/shop?category=${category.slug}`}
+                  className="shrink-0 border-b border-neutral-400 pb-1 text-xs uppercase tracking-[0.15em] text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-900"
+                >
+                  View all
+                </Link>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-6">
+              {relatedProductsWithImages.map((relatedProduct) => (
+                <ProductCard key={relatedProduct.id} product={relatedProduct} />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     </main>
   );

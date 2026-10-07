@@ -19,36 +19,16 @@ type ProductCardProps = {
   };
 };
 
-export function ProductCard({
-  product,
-}: ProductCardProps) {
-  const discountPercentage =
-    product.compareAtPricePaise &&
-    product.compareAtPricePaise >
-      product.pricePaise
-      ? Math.round(
-          ((product.compareAtPricePaise -
-            product.pricePaise) /
-            product.compareAtPricePaise) *
-            100,
-        )
-      : null;
-
+export function ProductCard({ product }: ProductCardProps) {
   return (
     <article className="group">
       <div className="relative overflow-hidden bg-neutral-100">
-        <Link
-          href={`/products/${product.slug}`}
-          className="block"
-        >
+        <Link href={`/products/${product.slug}`} className="block">
           <div className="relative aspect-3/4">
             {product.primaryImage ? (
               <Image
                 src={product.primaryImage.url}
-                alt={
-                  product.primaryImage.altText ??
-                  product.name
-                }
+                alt={product.primaryImage.altText ?? product.name}
                 fill
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 className="object-cover transition duration-700 ease-out group-hover:scale-[1.03]"
@@ -63,27 +43,8 @@ export function ProductCard({
           </div>
         </Link>
 
-        <div className="absolute left-3 top-3 flex flex-col gap-2">
-          {product.isOneOfOne ? (
-            <span className="bg-white/95 px-2.5 py-1 text-[10px] uppercase tracking-widest text-neutral-800">
-              One of one
-            </span>
-          ) : null}
-
-          {discountPercentage ? (
-            <span className="bg-black px-2.5 py-1 text-[10px] uppercase tracking-widest text-white">
-              {discountPercentage}% off
-            </span>
-          ) : null}
-        </div>
-
         <div className="absolute right-3 top-3">
-          <div className="bg-white/90 p-2 backdrop-blur-sm">
-            <WishlistButton
-              productId={product.id}
-              productName={product.name}
-            />
-          </div>
+          <WishlistButton productId={product.id} productName={product.name} />
         </div>
       </div>
 
@@ -100,18 +61,13 @@ export function ProductCard({
 
           <div className="shrink-0 text-right">
             <p className="text-sm font-medium text-neutral-900">
-              {formatINR(
-                product.pricePaise,
-              )}
+              {formatINR(product.pricePaise)}
             </p>
 
             {product.compareAtPricePaise &&
-            product.compareAtPricePaise >
-              product.pricePaise ? (
+            product.compareAtPricePaise > product.pricePaise ? (
               <p className="text-xs text-neutral-400 line-through">
-                {formatINR(
-                  product.compareAtPricePaise,
-                )}
+                {formatINR(product.compareAtPricePaise)}
               </p>
             ) : null}
           </div>

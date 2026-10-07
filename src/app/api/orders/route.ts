@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { razorpay } from "@/lib/payments/razorpay";
 
 type OrderItemInput = {
   productId: number;
@@ -107,6 +108,7 @@ export async function POST(request: Request) {
     }
 
     const items: OrderItemInput[] = [];
+    const seenProductIds = new Set<number>();
 
     for (const rawItem of payload.items) {
       if (typeof rawItem !== "object" || rawItem === null) {
@@ -131,6 +133,17 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
+
+      if (seenProductIds.has(item.productId)) {
+        return NextResponse.json(
+          {
+            error: "A product cannot appear more than once in the cart.",
+          },
+          { status: 400 },
+        );
+      }
+
+      seenProductIds.add(item.productId);
 
       if (item.quantity > 20) {
         return NextResponse.json(
@@ -394,13 +407,82 @@ export async function POST(request: Request) {
 
     const orderNumber = generateOrderNumber();
 
+    /*
+     * -------------------------------------------------
+     * Create Razorpay order
+     * -------------------------------------------------
+     *
+     * The Razorpay order is created BEFORE our local
+     * database transaction.
+     *
+     * If our DB transaction fails afterwards, no inventory
+     * has been permanently committed; the unpaid Razorpay
+     * order simply remains unused.
+     */
+
+    const razorpayOrder = await razorpay.orders.create({
+      amount: totalPaise,
+      currency: "INR",
+      receipt: orderNumber,
+      notes: {
+        orderNumber,
+      },
+    });
+
+    /*
+     * -------------------------------------------------
+     * Build inventory reservation plans
+     * -------------------------------------------------
+     */
+
+    const inventoryReservationPlans = orderItems.map((item) =>
+      db.raw.sql`
+      UPDATE "inventory"
+      SET "reserved" = "reserved" + ${item.quantity}
+      WHERE "productId" = ${item.productId}
+        AND "quantity" - "reserved" >= ${item.quantity}
+    `
+        .affectedCount()
+        .build(),
+    );
+
+    /*
+     * -------------------------------------------------
+     * Create local order + payment atomically
+     * -------------------------------------------------
+     */
+
     const order = await db.transaction(async (tx) => {
+      /*
+       * -------------------------------------------------
+       * Reserve inventory atomically
+       * -------------------------------------------------
+       */
+
+      for (let index = 0; index < orderItems.length; index += 1) {
+        const result = await tx.execute(inventoryReservationPlans[index]);
+
+        if (result.affectedRows !== 1) {
+          throw new Error(
+            `Insufficient inventory for product ${orderItems[index].productId}.`,
+          );
+        }
+      }
+
+      /*
+       * -------------------------------------------------
+       * Create local order
+       * -------------------------------------------------
+       */
+
       const createdOrder = await tx.orm.public.Order.create({
         orderNumber,
         userId: session?.userId ?? null,
+
         status: "PENDING",
         paymentStatus: "PENDING",
         shippingStatus: "PENDING",
+
         currency: "INR",
 
         subtotalPaise,
@@ -408,50 +490,50 @@ export async function POST(request: Request) {
         shippingPaise,
         taxPaise,
         totalPaise,
+
         customerEmail: shipping.email!.trim(),
 
         shippingRecipientName: shipping.name!.trim(),
-
         shippingPhone: shipping.phone!.trim(),
-
         shippingLine1: shipping.line1!.trim(),
-
         shippingLine2: shipping.line2?.trim() || null,
-
         shippingCity: shipping.city!.trim(),
-
         shippingState: shipping.state!.trim(),
-
         shippingPostalCode: shipping.postalCode!.trim(),
-
         shippingCountryCode: "IN",
       });
+
+      /*
+       * -------------------------------------------------
+       * Create order items
+       * -------------------------------------------------
+       */
 
       for (const item of orderItems) {
         await tx.orm.public.OrderItem.create({
           orderId: createdOrder.id,
-
           productId: item.productId,
-
           productName: item.productName,
-
           sku: item.sku,
-
           unitPricePaise: item.unitPricePaise,
-
           quantity: item.quantity,
-
           totalPaise: item.totalPaise,
         });
       }
 
+      /*
+       * -------------------------------------------------
+       * Create Razorpay payment record
+       * -------------------------------------------------
+       */
+
       await tx.orm.public.Payment.create({
         orderId: createdOrder.id,
 
-        provider: "pending",
+        provider: "razorpay",
+        providerOrderId: razorpayOrder.id,
 
         amountPaise: totalPaise,
-
         currency: "INR",
 
         status: "PENDING",
@@ -460,12 +542,6 @@ export async function POST(request: Request) {
       return createdOrder;
     });
 
-    /*
-     * -------------------------------------------------
-     * Return successful response
-     * -------------------------------------------------
-     */
-
     return NextResponse.json(
       {
         success: true,
@@ -473,18 +549,28 @@ export async function POST(request: Request) {
         order: {
           id: order.id,
           orderNumber: order.orderNumber,
+          status: order.status,
+          paymentStatus: order.paymentStatus,
           totalPaise: order.totalPaise,
           currency: order.currency,
+        },
+
+        payment: {
+          provider: "razorpay",
+          razorpayOrderId: razorpayOrder.id,
+          amountPaise: totalPaise,
+          currency: "INR",
+          keyId: process.env.RAZORPAY_KEY_ID,
         },
       },
       { status: 201 },
     );
   } catch (error) {
-    console.error("Order creation failed:", error);
+    console.error("Create order error:", error);
 
     return NextResponse.json(
       {
-        error: "Unable to create your order right now.",
+        error: "Unable to create order. Please try again.",
       },
       { status: 500 },
     );

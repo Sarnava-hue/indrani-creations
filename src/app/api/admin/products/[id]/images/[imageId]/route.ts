@@ -115,14 +115,14 @@ export async function PATCH(
     if (payload.action === "set-primary") {
       const unsetPrimaryPlan =
         db.raw.sql`
-          UPDATE "product_image"
+          UPDATE "productImage"
           SET "isPrimary" = false
           WHERE "productId" = ${productId}
         `.affectedCount().build();
 
       const setPrimaryPlan =
         db.raw.sql`
-          UPDATE "product_image"
+          UPDATE "productImage"
           SET "isPrimary" = true
           WHERE "id" = ${imageId}
           AND "productId" = ${productId}
@@ -154,7 +154,7 @@ export async function PATCH(
 
       const updatePlan =
         db.raw.sql`
-          UPDATE "product_image"
+          UPDATE "productImage"
           SET "altText" = NULLIF(${altText}, '')
           WHERE "id" = ${imageId}
           AND "productId" = ${productId}
@@ -247,21 +247,21 @@ export async function PATCH(
 
       const moveCurrentToTemporary =
         db.raw.sql`
-          UPDATE "product_image"
+          UPDATE "productImage"
           SET "sortOrder" = -1
           WHERE "id" = ${currentImage.id}
         `.affectedCount().build();
 
       const moveTarget =
         db.raw.sql`
-          UPDATE "product_image"
+          UPDATE "productImage"
           SET "sortOrder" = ${currentImage.sortOrder}
           WHERE "id" = ${targetImage.id}
         `.affectedCount().build();
 
       const moveCurrent =
         db.raw.sql`
-          UPDATE "product_image"
+          UPDATE "productImage"
           SET "sortOrder" = ${targetImage.sortOrder}
           WHERE "id" = ${currentImage.id}
         `.affectedCount().build();
@@ -398,7 +398,7 @@ export async function DELETE(
 
     const deletePlan =
       db.raw.sql`
-        DELETE FROM "product_image"
+        DELETE FROM "productImage"
         WHERE "id" = ${imageId}
         AND "productId" = ${productId}
       `.affectedCount().build();
@@ -410,7 +410,7 @@ export async function DELETE(
     if (nextPrimary) {
       const primaryPlan =
         db.raw.sql`
-          UPDATE "product_image"
+          UPDATE "productImage"
           SET "isPrimary" = true
           WHERE "id" = ${nextPrimary.id}
         `.affectedCount().build();
@@ -448,7 +448,7 @@ export async function DELETE(
       ) {
         const reorderPlan =
           db.raw.sql`
-            UPDATE "product_image"
+            UPDATE "productImage"
             SET "sortOrder" = ${index}
             WHERE "id" = ${imageToUpdate.id}
           `.affectedCount().build();

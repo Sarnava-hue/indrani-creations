@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { RazorpayCheckout } from "@/components/checkout/razorpay-checkout";
 
 import SavedAddresses, {
   type SavedAddress,
@@ -33,34 +33,35 @@ const initialForm: CheckoutForm = {
 };
 
 export default function CheckoutPage() {
-  const router = useRouter();
 
   const { items, subtotalPaise } = useCart();
 
-  const [form, setForm] =
-    useState<CheckoutForm>(initialForm);
+  const [form, setForm] = useState<CheckoutForm>(initialForm);
 
-  const [selectedAddressId, setSelectedAddressId] =
-    useState<number | null>(null);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
+    null,
+  );
 
-  const [submitting, setSubmitting] =
-    useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const [error, setError] = useState("");
 
-  function updateField(
-    field: keyof CheckoutForm,
-    value: string,
-  ) {
+  const [paymentData, setPaymentData] = useState<{
+    orderNumber: string;
+    razorpayOrderId: string;
+    amountPaise: number;
+    currency: string;
+    keyId: string;
+  } | null>(null);
+
+  function updateField(field: keyof CheckoutForm, value: string) {
     setForm((current) => ({
       ...current,
       [field]: value,
     }));
   }
 
-  function handleSavedAddressSelect(
-    address: SavedAddress,
-  ) {
+  function handleSavedAddressSelect(address: SavedAddress) {
     setSelectedAddressId(address.id);
 
     setForm((current) => ({
@@ -77,9 +78,7 @@ export default function CheckoutPage() {
     setError("");
   }
 
-  async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (submitting) {
@@ -99,15 +98,11 @@ export default function CheckoutPage() {
         !form.state.trim() ||
         !form.postalCode.trim()
       ) {
-        throw new Error(
-          "Please complete all required fields.",
-        );
+        throw new Error("Please complete all required fields.");
       }
 
       if (items.length === 0) {
-        throw new Error(
-          "Your bag is empty.",
-        );
+        throw new Error("Your bag is empty.");
       }
 
       const response = await fetch("/api/orders", {
@@ -134,8 +129,7 @@ export default function CheckoutPage() {
         }),
       });
 
-      const data: unknown =
-        await response.json();
+      const data: unknown = await response.json();
 
       if (!response.ok) {
         const message =
@@ -156,24 +150,33 @@ export default function CheckoutPage() {
         typeof data.order !== "object" ||
         data.order === null ||
         !("orderNumber" in data.order) ||
-        typeof data.order.orderNumber !== "string"
+        typeof data.order.orderNumber !== "string" ||
+        !("payment" in data) ||
+        typeof data.payment !== "object" ||
+        data.payment === null ||
+        !("razorpayOrderId" in data.payment) ||
+        typeof data.payment.razorpayOrderId !== "string" ||
+        !("amountPaise" in data.payment) ||
+        typeof data.payment.amountPaise !== "number" ||
+        !("currency" in data.payment) ||
+        typeof data.payment.currency !== "string" ||
+        !("keyId" in data.payment) ||
+        typeof data.payment.keyId !== "string"
       ) {
         throw new Error(
-          "Order was created, but the confirmation information was invalid.",
+          "Order was created, but payment information was invalid.",
         );
       }
 
-      router.push(
-        `/order-success/${encodeURIComponent(
-          data.order.orderNumber,
-        )}`,
-      );
+      setPaymentData({
+        orderNumber: data.order.orderNumber,
+        razorpayOrderId: data.payment.razorpayOrderId,
+        amountPaise: data.payment.amountPaise,
+        currency: data.payment.currency,
+        keyId: data.payment.keyId,
+      });
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong.",
-      );
+      setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setSubmitting(false);
     }
@@ -192,8 +195,7 @@ export default function CheckoutPage() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-md text-sm leading-7 text-neutral-600">
-            Add a saree to your bag before
-            continuing to checkout.
+            Add a saree to your bag before continuing to checkout.
           </p>
 
           <Link
@@ -260,10 +262,7 @@ export default function CheckoutPage() {
                     required
                     value={form.name}
                     onChange={(event) =>
-                      updateField(
-                        "name",
-                        event.target.value,
-                      )
+                      updateField("name", event.target.value)
                     }
                     className="w-full border border-black/15 bg-white px-4 py-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-300 focus:border-neutral-900"
                     placeholder="Your full name"
@@ -280,10 +279,7 @@ export default function CheckoutPage() {
                     type="tel"
                     value={form.phone}
                     onChange={(event) =>
-                      updateField(
-                        "phone",
-                        event.target.value,
-                      )
+                      updateField("phone", event.target.value)
                     }
                     className="w-full border border-black/15 bg-white px-4 py-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-300 focus:border-neutral-900"
                     placeholder="+91 98765 43210"
@@ -300,10 +296,7 @@ export default function CheckoutPage() {
                     type="email"
                     value={form.email}
                     onChange={(event) =>
-                      updateField(
-                        "email",
-                        event.target.value,
-                      )
+                      updateField("email", event.target.value)
                     }
                     className="w-full border border-black/15 bg-white px-4 py-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-300 focus:border-neutral-900"
                     placeholder="you@example.com"
@@ -328,12 +321,8 @@ export default function CheckoutPage() {
               {/* Saved addresses */}
 
               <SavedAddresses
-                selectedAddressId={
-                  selectedAddressId
-                }
-                onSelect={
-                  handleSavedAddressSelect
-                }
+                selectedAddressId={selectedAddressId}
+                onSelect={handleSavedAddressSelect}
               />
 
               <div className="grid gap-5 sm:grid-cols-2">
@@ -346,10 +335,7 @@ export default function CheckoutPage() {
                     required
                     value={form.line1}
                     onChange={(event) =>
-                      updateField(
-                        "line1",
-                        event.target.value,
-                      )
+                      updateField("line1", event.target.value)
                     }
                     className="w-full border border-black/15 bg-white px-4 py-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-300 focus:border-neutral-900"
                     placeholder="House / flat / street"
@@ -364,10 +350,7 @@ export default function CheckoutPage() {
                   <input
                     value={form.line2}
                     onChange={(event) =>
-                      updateField(
-                        "line2",
-                        event.target.value,
-                      )
+                      updateField("line2", event.target.value)
                     }
                     className="w-full border border-black/15 bg-white px-4 py-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-300 focus:border-neutral-900"
                     placeholder="Apartment, landmark, etc. (optional)"
@@ -383,10 +366,7 @@ export default function CheckoutPage() {
                     required
                     value={form.city}
                     onChange={(event) =>
-                      updateField(
-                        "city",
-                        event.target.value,
-                      )
+                      updateField("city", event.target.value)
                     }
                     className="w-full border border-black/15 bg-white px-4 py-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-300 focus:border-neutral-900"
                     placeholder="City"
@@ -402,10 +382,7 @@ export default function CheckoutPage() {
                     required
                     value={form.state}
                     onChange={(event) =>
-                      updateField(
-                        "state",
-                        event.target.value,
-                      )
+                      updateField("state", event.target.value)
                     }
                     className="w-full border border-black/15 bg-white px-4 py-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-300 focus:border-neutral-900"
                     placeholder="State"
@@ -423,10 +400,7 @@ export default function CheckoutPage() {
                     maxLength={6}
                     value={form.postalCode}
                     onChange={(event) =>
-                      updateField(
-                        "postalCode",
-                        event.target.value,
-                      )
+                      updateField("postalCode", event.target.value)
                     }
                     className="w-full border border-black/15 bg-white px-4 py-4 text-sm text-neutral-900 outline-none transition placeholder:text-neutral-300 focus:border-neutral-900"
                     placeholder="700001"
@@ -435,7 +409,7 @@ export default function CheckoutPage() {
               </div>
             </section>
 
-            {/* Payment placeholder */}
+            {/* Payment */}
 
             <section>
               <div className="mb-6">
@@ -448,18 +422,45 @@ export default function CheckoutPage() {
                 </h2>
               </div>
 
-              <div className="border border-black/10 bg-white p-6">
-                <p className="text-sm text-neutral-700">
-                  Secure online payment will be
-                  available here.
-                </p>
+              {paymentData ? (
+                <div className="space-y-4">
+                  <div className="border border-black/10 bg-white p-6">
+                    <p className="text-sm text-neutral-500">Order created</p>
 
-                <p className="mt-2 text-xs leading-6 text-neutral-500">
-                  Payment processing will be
-                  connected after the server-side
-                  order system is complete.
-                </p>
-              </div>
+                    <p className="mt-2 text-sm font-medium text-neutral-900">
+                      {paymentData.orderNumber}
+                    </p>
+
+                    <p className="mt-3 text-sm leading-6 text-neutral-600">
+                      Your order has been reserved. Complete the secure payment
+                      below to confirm your order.
+                    </p>
+                  </div>
+
+                  <RazorpayCheckout
+                    orderNumber={paymentData.orderNumber}
+                    razorpayOrderId={paymentData.razorpayOrderId}
+                    amountPaise={paymentData.amountPaise}
+                    currency={paymentData.currency}
+                    keyId={paymentData.keyId}
+                    customerName={form.name}
+                    customerEmail={form.email}
+                    customerPhone={form.phone}
+                  />
+                </div>
+              ) : (
+                <div className="border border-black/10 bg-white p-6">
+                  <p className="text-sm text-neutral-700">
+                    Secure payment will appear here after your order details are
+                    submitted.
+                  </p>
+
+                  <p className="mt-2 text-xs leading-6 text-neutral-500">
+                    You will be redirected to Razorpay&apos;s secure payment
+                    window after placing your order.
+                  </p>
+                </div>
+              )}
             </section>
 
             {/* Error */}
@@ -475,15 +476,15 @@ export default function CheckoutPage() {
 
             {/* Submit */}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-neutral-900 px-8 py-5 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
-            >
-              {submitting
-                ? "Processing..."
-                : "Place order"}
-            </button>
+            {!paymentData && (
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-neutral-900 px-8 py-5 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
+              >
+                {submitting ? "Processing..." : "Place order"}
+              </button>
+            )}
           </div>
 
           {/* Summary */}
@@ -512,9 +513,7 @@ export default function CheckoutPage() {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-neutral-900">
-                        {item.name}
-                      </p>
+                      <p className="text-sm text-neutral-900">{item.name}</p>
 
                       <p className="mt-1 text-xs text-neutral-500">
                         Qty: {item.quantity}
@@ -522,10 +521,7 @@ export default function CheckoutPage() {
                     </div>
 
                     <p className="text-sm text-neutral-900">
-                      {formatINR(
-                        item.pricePaise *
-                          item.quantity,
-                      )}
+                      {formatINR(item.pricePaise * item.quantity)}
                     </p>
                   </div>
                 ))}
@@ -533,19 +529,13 @@ export default function CheckoutPage() {
 
               <div className="mt-8 space-y-4 border-t border-black/10 pt-6">
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">
-                    Subtotal
-                  </span>
+                  <span className="text-neutral-500">Subtotal</span>
 
-                  <span>
-                    {formatINR(subtotalPaise)}
-                  </span>
+                  <span>{formatINR(subtotalPaise)}</span>
                 </div>
 
                 <div className="flex justify-between text-sm">
-                  <span className="text-neutral-500">
-                    Shipping
-                  </span>
+                  <span className="text-neutral-500">Shipping</span>
 
                   <span>Calculated later</span>
                 </div>
@@ -553,9 +543,7 @@ export default function CheckoutPage() {
                 <div className="flex justify-between border-t border-black/10 pt-5 text-lg">
                   <span>Total</span>
 
-                  <span>
-                    {formatINR(subtotalPaise)}
-                  </span>
+                  <span>{formatINR(subtotalPaise)}</span>
                 </div>
               </div>
             </div>

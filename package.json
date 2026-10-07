@@ -16,6 +16,7 @@
   "dependencies": {
     "@prisma/orm-postgres": "^8.0.0-rc.11",
     "@razorpay/razorpay-js": "^1.0.0",
+    "@swc/helpers": "^0.5.23",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.2",
     "jose": "^6.2.12",

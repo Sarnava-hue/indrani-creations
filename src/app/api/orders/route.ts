@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { razorpay } from "@/lib/payments/razorpay";
+import { getRazorpay } from "@/lib/payments/razorpay";
 
 type OrderItemInput = {
   productId: number;
@@ -419,6 +419,8 @@ export async function POST(request: Request) {
      * has been permanently committed; the unpaid Razorpay
      * order simply remains unused.
      */
+
+    const razorpay = getRazorpay();
 
     const razorpayOrder = await razorpay.orders.create({
       amount: totalPaise,

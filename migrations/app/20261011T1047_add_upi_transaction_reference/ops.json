@@ -1,0 +1,86 @@
+[
+  {
+    "id": "column.public.payment.upiTransactionReference",
+    "label": "Add column \"upiTransactionReference\" to \"payment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "upiTransactionReference",
+        "table": "payment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"upiTransactionReference\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payment",
+          "upiTransactionReference"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"upiTransactionReference\"",
+        "sql": "ALTER TABLE \"public\".\"payment\" ADD COLUMN \"upiTransactionReference\" text"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"upiTransactionReference\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payment",
+          "upiTransactionReference"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "column.public.payment.upiReferenceSubmittedAt",
+    "label": "Add column \"upiReferenceSubmittedAt\" to \"payment\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "column",
+        "name": "upiReferenceSubmittedAt",
+        "table": "payment"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure column \"upiReferenceSubmittedAt\" is missing",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payment",
+          "upiReferenceSubmittedAt"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "add column \"upiReferenceSubmittedAt\"",
+        "sql": "ALTER TABLE \"public\".\"payment\" ADD COLUMN \"upiReferenceSubmittedAt\" timestamptz"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify column \"upiReferenceSubmittedAt\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"information_schema\".\"columns\" WHERE (\"table_schema\" = $1 AND \"table_name\" = $2 AND \"column_name\" = $3)) AS \"result\"",
+        "params": [
+          "public",
+          "payment",
+          "upiReferenceSubmittedAt"
+        ]
+      }
+    ]
+  }
+]

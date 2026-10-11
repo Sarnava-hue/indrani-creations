@@ -231,7 +231,7 @@ model Order {
   userId                Int?
 
   orderNumber           String                     @unique
-
+  guestAccessTokenHash  String?
   customerEmail         String
 
   status                OrderStatus                @default(PENDING) @default(PENDING)
@@ -308,11 +308,16 @@ model Payment {
   amountPaise       Int
   currency          String                     @default("INR")
 
+
   status            PaymentStatus              @default(PENDING)
 
   paidAt            TimestamptzString?
   failureCode       String?
   failureNote       String?
+
+  upiTransactionReference String?
+  upiReferenceSubmittedAt TimestamptzString?
+
 
   createdAt         TimestamptzString          @default(now())
   updatedAt         temporal.updatedAtString()

@@ -44,12 +44,8 @@ type OrderSuccessPageProps = {
   }>;
 };
 
-async function getOrder(
-  orderNumber: string,
-): Promise<OrderResponse | null> {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    "http://localhost:3000";
+async function getOrder(orderNumber: string): Promise<OrderResponse | null> {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
   const response = await fetch(
     `${baseUrl}/api/orders/${encodeURIComponent(orderNumber)}`,
@@ -69,9 +65,7 @@ function formatStatus(status: string): string {
   return status
     .toLowerCase()
     .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase(),
-    );
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 export default async function OrderSuccessPage({
@@ -95,8 +89,7 @@ export default async function OrderSuccessPage({
             </h1>
 
             <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-[#241f1b]/60">
-              Please check your order number or return to the
-              shop.
+              Please check your order number or return to the shop.
             </p>
 
             <Link
@@ -125,17 +118,21 @@ export default async function OrderSuccessPage({
               </div>
 
               <p className="text-xs uppercase tracking-[0.25em] text-[#8b6f47]">
-                Order confirmed
+                {order.paymentStatus === "PAID"
+                  ? "Order confirmed"
+                  : "Payment pending"}
               </p>
 
               <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">
-                Thank you for your order.
+                {order.paymentStatus === "PAID"
+                  ? "Thank you for your order."
+                  : "Your order has been received."}
               </h1>
 
               <p className="mt-4 max-w-xl text-sm leading-7 text-[#241f1b]/60">
-                Your order has been received successfully.
-                We&apos;ll keep you updated as it moves through
-                preparation and shipping.
+                {order.paymentStatus === "PAID"
+                  ? "Your payment has been verified and your order is confirmed. We'll keep you updated as it moves through preparation and shipping."
+                  : "Your order details have been received, but payment is still pending. Your order will be confirmed after the store verifies receipt of your payment."}
               </p>
             </div>
 
@@ -192,9 +189,7 @@ export default async function OrderSuccessPage({
                 Your selection
               </p>
 
-              <h2 className="mt-2 font-serif text-3xl">
-                Order items
-              </h2>
+              <h2 className="mt-2 font-serif text-3xl">Order items</h2>
             </div>
 
             <div className="divide-y divide-[#241f1b]/10">
@@ -204,17 +199,14 @@ export default async function OrderSuccessPage({
                   className="flex items-start justify-between gap-6 py-5 first:pt-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <h3 className="font-medium">
-                      {item.productName}
-                    </h3>
+                    <h3 className="font-medium">{item.productName}</h3>
 
                     <p className="mt-1 text-xs text-[#241f1b]/45">
                       SKU: {item.sku}
                     </p>
 
                     <p className="mt-2 text-sm text-[#241f1b]/60">
-                      {formatINR(item.unitPricePaise)} ×{" "}
-                      {item.quantity}
+                      {formatINR(item.unitPricePaise)} × {item.quantity}
                     </p>
                   </div>
 
@@ -233,61 +225,38 @@ export default async function OrderSuccessPage({
                 Summary
               </p>
 
-              <h2 className="mt-2 font-serif text-3xl">
-                Order total
-              </h2>
+              <h2 className="mt-2 font-serif text-3xl">Order total</h2>
 
               <div className="mt-6 space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-[#241f1b]/55">
-                    Subtotal
-                  </span>
+                  <span className="text-[#241f1b]/55">Subtotal</span>
 
-                  <span>
-                    {formatINR(
-                      order.subtotalPaise,
-                    )}
-                  </span>
+                  <span>{formatINR(order.subtotalPaise)}</span>
                 </div>
 
                 <div className="flex justify-between">
-                  <span className="text-[#241f1b]/55">
-                    Shipping
-                  </span>
+                  <span className="text-[#241f1b]/55">Shipping</span>
 
                   <span>
                     {order.shippingPaise === 0
                       ? "Free"
-                      : formatINR(
-                          order.shippingPaise,
-                        )}
+                      : formatINR(order.shippingPaise)}
                   </span>
                 </div>
 
                 {order.discountPaise > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-[#241f1b]/55">
-                      Discount
-                    </span>
+                    <span className="text-[#241f1b]/55">Discount</span>
 
-                    <span>
-                      −
-                      {formatINR(
-                        order.discountPaise,
-                      )}
-                    </span>
+                    <span>−{formatINR(order.discountPaise)}</span>
                   </div>
                 )}
 
                 {order.taxPaise > 0 && (
                   <div className="flex justify-between">
-                    <span className="text-[#241f1b]/55">
-                      Tax
-                    </span>
+                    <span className="text-[#241f1b]/55">Tax</span>
 
-                    <span>
-                      {formatINR(order.taxPaise)}
-                    </span>
+                    <span>{formatINR(order.taxPaise)}</span>
                   </div>
                 )}
 
@@ -295,9 +264,7 @@ export default async function OrderSuccessPage({
                   <div className="flex justify-between text-base font-medium">
                     <span>Total</span>
 
-                    <span>
-                      {formatINR(order.totalPaise)}
-                    </span>
+                    <span>{formatINR(order.totalPaise)}</span>
                   </div>
                 </div>
               </div>
@@ -308,9 +275,7 @@ export default async function OrderSuccessPage({
                 Delivery
               </p>
 
-              <h2 className="mt-2 font-serif text-3xl">
-                Shipping address
-              </h2>
+              <h2 className="mt-2 font-serif text-3xl">Shipping address</h2>
 
               <div className="mt-5 text-sm leading-7 text-[#241f1b]/70">
                 <p className="font-medium text-[#241f1b]">
@@ -319,22 +284,15 @@ export default async function OrderSuccessPage({
 
                 <p>{order.shipping.phone}</p>
 
-                <p className="mt-2">
-                  {order.shipping.line1}
-                </p>
+                <p className="mt-2">{order.shipping.line1}</p>
 
-                {order.shipping.line2 && (
-                  <p>{order.shipping.line2}</p>
-                )}
+                {order.shipping.line2 && <p>{order.shipping.line2}</p>}
 
                 <p>
-                  {order.shipping.city},{" "}
-                  {order.shipping.state}
+                  {order.shipping.city}, {order.shipping.state}
                 </p>
 
-                <p>
-                  {order.shipping.postalCode}
-                </p>
+                <p>{order.shipping.postalCode}</p>
               </div>
             </section>
           </div>

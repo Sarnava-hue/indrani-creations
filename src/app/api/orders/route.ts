@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { getRazorpay } from "@/lib/payments/razorpay";
+import { createHash, randomBytes } from "node:crypto";
 
 type OrderItemInput = {
   productId: number;
@@ -407,29 +407,12 @@ export async function POST(request: Request) {
 
     const orderNumber = generateOrderNumber();
 
-    /*
-     * -------------------------------------------------
-     * Create Razorpay order
-     * -------------------------------------------------
-     *
-     * The Razorpay order is created BEFORE our local
-     * database transaction.
-     *
-     * If our DB transaction fails afterwards, no inventory
-     * has been permanently committed; the unpaid Razorpay
-     * order simply remains unused.
-     */
+    const guestAccessToken =
+      session?.userId == null ? randomBytes(32).toString("hex") : null;
 
-    const razorpay = getRazorpay();
-
-    const razorpayOrder = await razorpay.orders.create({
-      amount: totalPaise,
-      currency: "INR",
-      receipt: orderNumber,
-      notes: {
-        orderNumber,
-      },
-    });
+    const guestAccessTokenHash = guestAccessToken
+      ? createHash("sha256").update(guestAccessToken).digest("hex")
+      : null;
 
     /*
      * -------------------------------------------------
@@ -478,7 +461,7 @@ export async function POST(request: Request) {
        */
 
       const createdOrder = await tx.orm.public.Order.create({
-        orderNumber,
+        orderNumber, guestAccessTokenHash,
         userId: session?.userId ?? null,
 
         status: "PENDING",
@@ -531,13 +514,9 @@ export async function POST(request: Request) {
 
       await tx.orm.public.Payment.create({
         orderId: createdOrder.id,
-
-        provider: "razorpay",
-        providerOrderId: razorpayOrder.id,
-
+        provider: "upi_manual",
         amountPaise: totalPaise,
         currency: "INR",
-
         status: "PENDING",
       });
 
@@ -555,14 +534,13 @@ export async function POST(request: Request) {
           paymentStatus: order.paymentStatus,
           totalPaise: order.totalPaise,
           currency: order.currency,
+          guestAccessToken,
         },
 
         payment: {
-          provider: "razorpay",
-          razorpayOrderId: razorpayOrder.id,
+          provider: "upi_manual",
           amountPaise: totalPaise,
           currency: "INR",
-          keyId: process.env.RAZORPAY_KEY_ID,
         },
       },
       { status: 201 },

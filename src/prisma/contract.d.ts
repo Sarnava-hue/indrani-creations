@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'b2d1c01fbc4e8b675ba59b0f54cdcd1d7ece085b9a7f42d60e4a8ec3df7f71e5'>;
+  StorageHashBase<'300150f0d509291fd2a3cb78ede70092cf9605ee06d9a39b832a93a53abd4c53'>;
 export type ExecutionHash =
   ExecutionHashBase<'83772c84750cc11bb0342829d97e5fac01dad233076d10530d04b128f4ed283f'>;
 export type ProfileHash =
@@ -311,6 +311,7 @@ export type FieldOutputTypes = {
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly userId: CodecTypes['pg/int4@1']['output'] | null;
       readonly orderNumber: CodecTypes['pg/text@1']['output'];
+      readonly guestAccessTokenHash: CodecTypes['pg/text@1']['output'] | null;
       readonly customerEmail: CodecTypes['pg/text@1']['output'];
       readonly status:
         | 'PENDING'
@@ -369,6 +370,8 @@ export type FieldOutputTypes = {
       readonly paidAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly failureCode: CodecTypes['pg/text@1']['output'] | null;
       readonly failureNote: CodecTypes['pg/text@1']['output'] | null;
+      readonly upiTransactionReference: CodecTypes['pg/text@1']['output'] | null;
+      readonly upiReferenceSubmittedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
@@ -528,6 +531,7 @@ export type FieldInputTypes = {
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly userId: CodecTypes['pg/int4@1']['input'] | null;
       readonly orderNumber: CodecTypes['pg/text@1']['input'];
+      readonly guestAccessTokenHash: CodecTypes['pg/text@1']['input'] | null;
       readonly customerEmail: CodecTypes['pg/text@1']['input'];
       readonly status:
         | 'PENDING'
@@ -586,6 +590,8 @@ export type FieldInputTypes = {
       readonly paidAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly failureCode: CodecTypes['pg/text@1']['input'] | null;
       readonly failureNote: CodecTypes['pg/text@1']['input'] | null;
+      readonly upiTransactionReference: CodecTypes['pg/text@1']['input'] | null;
+      readonly upiReferenceSubmittedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
@@ -748,6 +754,7 @@ export type StorageColumnTypes = {
       readonly customerEmail: CodecTypes['pg/text@1']['output'];
       readonly customerNote: CodecTypes['pg/text@1']['output'] | null;
       readonly discountPaise: CodecTypes['pg/int4@1']['output'];
+      readonly guestAccessTokenHash: CodecTypes['pg/text@1']['output'] | null;
       readonly id: CodecTypes['pg/int4@1']['output'];
       readonly orderNumber: CodecTypes['pg/text@1']['output'];
       readonly paymentStatus:
@@ -805,6 +812,8 @@ export type StorageColumnTypes = {
       readonly status:
         'PENDING' | 'AUTHORIZED' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIALLY_REFUNDED';
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly upiReferenceSubmittedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly upiTransactionReference: CodecTypes['pg/text@1']['output'] | null;
     };
     readonly paymentEvent: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -965,6 +974,7 @@ export type StorageColumnInputTypes = {
       readonly customerEmail: CodecTypes['pg/text@1']['input'];
       readonly customerNote: CodecTypes['pg/text@1']['input'] | null;
       readonly discountPaise: CodecTypes['pg/int4@1']['input'];
+      readonly guestAccessTokenHash: CodecTypes['pg/text@1']['input'] | null;
       readonly id: CodecTypes['pg/int4@1']['input'];
       readonly orderNumber: CodecTypes['pg/text@1']['input'];
       readonly paymentStatus:
@@ -1022,6 +1032,8 @@ export type StorageColumnInputTypes = {
       readonly status:
         'PENDING' | 'AUTHORIZED' | 'PAID' | 'FAILED' | 'REFUNDED' | 'PARTIALLY_REFUNDED';
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly upiReferenceSubmittedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly upiTransactionReference: CodecTypes['pg/text@1']['input'] | null;
     };
     readonly paymentEvent: {
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -1252,6 +1264,7 @@ export namespace Models {
     id: CodecTypes['pg/int4@1']['output'];
     userId: CodecTypes['pg/int4@1']['output'] | null;
     orderNumber: CodecTypes['pg/text@1']['output'];
+    guestAccessTokenHash: CodecTypes['pg/text@1']['output'] | null;
     customerEmail: CodecTypes['pg/text@1']['output'];
     status:
       | 'PENDING'
@@ -1317,6 +1330,8 @@ export namespace Models {
     paidAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     failureCode: CodecTypes['pg/text@1']['output'] | null;
     failureNote: CodecTypes['pg/text@1']['output'] | null;
+    upiTransactionReference: CodecTypes['pg/text@1']['output'] | null;
+    upiReferenceSubmittedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     order: public_Order;
@@ -1939,6 +1954,11 @@ type ContractBase = Omit<
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
                 };
+                readonly guestAccessTokenHash: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
                 readonly customerEmail: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
@@ -2313,6 +2333,16 @@ type ContractBase = Omit<
                 readonly failureNote: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly upiTransactionReference: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly upiReferenceSubmittedAt: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
                   readonly nullable: true;
                 };
                 readonly createdAt: {
@@ -3611,6 +3641,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly guestAccessTokenHash: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly customerEmail: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -3771,6 +3805,7 @@ type ContractBase = Omit<
                 readonly id: { readonly column: 'id' };
                 readonly userId: { readonly column: 'userId' };
                 readonly orderNumber: { readonly column: 'orderNumber' };
+                readonly guestAccessTokenHash: { readonly column: 'guestAccessTokenHash' };
                 readonly customerEmail: { readonly column: 'customerEmail' };
                 readonly status: { readonly column: 'status' };
                 readonly paymentStatus: { readonly column: 'paymentStatus' };
@@ -3929,6 +3964,17 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
+              readonly upiTransactionReference: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly upiReferenceSubmittedAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
               readonly createdAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -3973,6 +4019,8 @@ type ContractBase = Omit<
                 readonly paidAt: { readonly column: 'paidAt' };
                 readonly failureCode: { readonly column: 'failureCode' };
                 readonly failureNote: { readonly column: 'failureNote' };
+                readonly upiTransactionReference: { readonly column: 'upiTransactionReference' };
+                readonly upiReferenceSubmittedAt: { readonly column: 'upiReferenceSubmittedAt' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly updatedAt: { readonly column: 'updatedAt' };
               };

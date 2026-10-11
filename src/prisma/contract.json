@@ -1025,6 +1025,13 @@
                   "kind": "scalar"
                 }
               },
+              "guestAccessTokenHash": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -1277,6 +1284,9 @@
                 },
                 "discountPaise": {
                   "column": "discountPaise"
+                },
+                "guestAccessTokenHash": {
+                  "column": "guestAccessTokenHash"
                 },
                 "id": {
                   "column": "id"
@@ -1572,6 +1582,20 @@
                   "codecId": "pg/timestamptz-string@1",
                   "kind": "scalar"
                 }
+              },
+              "upiReferenceSubmittedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "upiTransactionReference": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
               }
             },
             "relations": {
@@ -1632,6 +1656,12 @@
                 },
                 "updatedAt": {
                   "column": "updatedAt"
+                },
+                "upiReferenceSubmittedAt": {
+                  "column": "upiReferenceSubmittedAt"
+                },
+                "upiTransactionReference": {
+                  "column": "upiTransactionReference"
                 }
               },
               "namespaceId": "public",
@@ -3391,6 +3421,11 @@
                   "nativeType": "int4",
                   "nullable": false
                 },
+                "guestAccessTokenHash": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
                 "id": {
                   "codecId": "pg/int4@1",
                   "default": {
@@ -3840,6 +3875,16 @@
                   "codecId": "pg/timestamptz-string@1",
                   "nativeType": "timestamptz",
                   "nullable": false
+                },
+                "upiReferenceSubmittedAt": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "upiTransactionReference": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
                 }
               },
               "foreignKeys": [
@@ -4810,7 +4855,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "b2d1c01fbc4e8b675ba59b0f54cdcd1d7ece085b9a7f42d60e4a8ec3df7f71e5"
+    "storageHash": "300150f0d509291fd2a3cb78ede70092cf9605ee06d9a39b832a93a53abd4c53"
   },
   "execution": {
     "executionHash": "83772c84750cc11bb0342829d97e5fac01dad233076d10530d04b128f4ed283f",

@@ -6,6 +6,7 @@ import { WishlistButton } from "@/components/store/wishlist-button";
 import { AddToBagButton } from "@/components/store/add-to-bag-button";
 import { ProductGallery } from "@/components/store/product-gallery";
 import { ProductCard } from "@/components/store/product-card";
+
 type ProductPageProps = {
   params: Promise<{
     slug: string;
@@ -117,10 +118,41 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const { product, images, primaryImage, inventory, category } = result;
 
+  const siteUrl = "https://indranicreations.store";
+
   const availableQuantity =
     (inventory?.quantity ?? 0) - (inventory?.reserved ?? 0);
 
   const isAvailable = availableQuantity > 0;
+
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description:
+      product.description ||
+      product.shortDescription ||
+      `Discover ${product.name} at Indrani Creations.`,
+    sku: product.sku,
+    url: `${siteUrl}/products/${product.slug}`,
+    image: images.map((image) => new URL(image.url, siteUrl).href),
+    ...(category ? { category: category.name } : {}),
+    offers: {
+      "@type": "Offer",
+      url: `${siteUrl}/products/${product.slug}`,
+      priceCurrency: "INR",
+      price: (product.pricePaise / 100).toFixed(2),
+      availability: isAvailable
+        ? "https://schema.org/InStock"
+        : "https://schema.org/OutOfStock",
+      itemCondition: "https://schema.org/NewCondition",
+    },
+  };
+
+  const productJsonLdString = JSON.stringify(productJsonLd).replace(
+    /</g,
+    "\\u003c",
+  );
 
   const isSaree =
     Boolean(product.sareeLength) || Boolean(category?.slug.includes("saree"));
@@ -167,6 +199,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <main className="min-h-screen bg-[#f7f4ef]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: productJsonLdString,
+        }}
+      />
+
       {/* ------------------------------------------------------ */}
       {/* Breadcrumb */}
       {/* ------------------------------------------------------ */}
@@ -198,7 +237,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           <span>/</span>
 
-          <span className="max-w-[180px] truncate text-neutral-900">
+          <span className="max-w-45 truncate text-neutral-900">
             {product.name}
           </span>
         </nav>
@@ -254,7 +293,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
                   </span>
                 )}
             </div>
-            
+
             {/* Availability */}
 
             <div className="mt-6 flex items-center gap-3">
@@ -425,6 +464,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
           </div>
         </div>
+
         {relatedProductsWithImages.length > 0 && (
           <div className="mt-24 border-t border-black/10 pt-16">
             <div className="mb-10 flex items-end justify-between gap-6">

@@ -12,86 +12,65 @@ type PageProps = {
 };
 
 async function getCategory(slug: string) {
-  const category =
-    await db.orm.public.Category
-      .where({
-        slug,
-        isActive: true,
-      })
-      .select(
-        "id",
-        "name",
-        "slug",
-        "description",
-        "imageUrl",
-        "parentId",
-        "sortOrder",
-      )
-      .first();
+  const category = await db.orm.public.Category.where({
+    slug,
+    isActive: true,
+  })
+    .select(
+      "id",
+      "name",
+      "slug",
+      "description",
+      "imageUrl",
+      "parentId",
+      "sortOrder",
+    )
+    .first();
 
   if (!category) {
     return null;
   }
 
-  const products =
-    await db.orm.public.Product
-      .where({
-        categoryId: category.id,
-        isActive: true,
+  const products = await db.orm.public.Product.where({
+    categoryId: category.id,
+    isActive: true,
+  })
+    .select(
+      "id",
+      "name",
+      "slug",
+      "sku",
+      "shortDescription",
+      "pricePaise",
+      "compareAtPricePaise",
+      "fabric",
+      "color",
+      "occasion",
+      "pattern",
+      "isOneOfOne",
+      "isFeatured",
+    )
+    .orderBy((product) => product.createdAt.desc())
+    .all();
+
+  const productsWithImages = await Promise.all(
+    products.map(async (product) => {
+      const images = await db.orm.public.ProductImage.where({
+        productId: product.id,
       })
-      .select(
-        "id",
-        "name",
-        "slug",
-        "sku",
-        "shortDescription",
-        "pricePaise",
-        "compareAtPricePaise",
-        "fabric",
-        "color",
-        "occasion",
-        "pattern",
-        "isOneOfOne",
-        "isFeatured",
-      )
-      .orderBy((product) =>
-        product.createdAt.desc(),
-      )
-      .all();
+        .select("id", "url", "altText", "sortOrder", "isPrimary")
+        .orderBy((image) => image.sortOrder.asc())
+        .all();
 
-  const productsWithImages =
-    await Promise.all(
-      products.map(async (product) => {
-        const images =
-          await db.orm.public.ProductImage
-            .where({
-              productId: product.id,
-            })
-            .select(
-              "id",
-              "url",
-              "altText",
-              "sortOrder",
-              "isPrimary",
-            )
-            .orderBy((image) =>
-              image.sortOrder.asc(),
-            )
-            .all();
+      const primaryImage =
+        images.find((image) => image.isPrimary) ?? images[0] ?? null;
 
-        const primaryImage =
-          images.find(
-            (image) => image.isPrimary,
-          ) ??
-          images[0] ??
-          null;
-
-        return {
-          ...product,
-          primaryImage,
-        };
-      }),
-    );
+      return {
+        ...product,
+        primaryImage,
+      };
+    }),
+  );
 
   return {
     category,
@@ -103,31 +82,51 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-
   const result = await getCategory(slug);
 
   if (!result) {
     return {
-      title: "Collection not found | Indrani Creations",
+      title: "Collection Not Found",
+      robots: {
+        index: false,
+        follow: true,
+      },
     };
   }
 
   const { category } = result;
 
+  const description =
+    category.description?.trim() ||
+    `Explore the ${category.name} collection at Indrani Creations. Discover beautiful sarees for celebrations, special occasions, and everyday elegance. Shop online.`;
+
+  const title = `${category.name} | Shop Online`;
+
+  const canonical = `/collections/${category.slug}`;
+
   return {
-    title: `${category.name} | Indrani Creations`,
-    description:
-      category.description ??
-      `Explore our ${category.name.toLowerCase()} collection at Indrani Creations.`,
+    title,
+    description,
     alternates: {
-      canonical: `/collections/${category.slug}`,
+      canonical,
+    },
+    openGraph: {
+      type: "website",
+      url: canonical,
+      siteName: "Indrani Creations",
+      title: `${title} | Indrani Creations`,
+      description,
+      locale: "en_IN",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} | Indrani Creations`,
+      description,
     },
   };
 }
 
-export default async function CollectionPage({
-  params,
-}: PageProps) {
+export default async function CollectionPage({ params }: PageProps) {
   const { slug } = await params;
 
   const result = await getCategory(slug);
@@ -173,18 +172,14 @@ export default async function CollectionPage({
         <div className="mx-auto max-w-360 px-5 py-10 sm:px-8 lg:px-10 lg:py-14">
           <div className="mb-8 flex items-center justify-between">
             <p className="text-xs uppercase tracking-widest text-neutral-400">
-              {products.length}{" "}
-              {products.length === 1
-                ? "piece"
-                : "pieces"}
+              {products.length} {products.length === 1 ? "piece" : "pieces"}
             </p>
           </div>
 
           {products.length === 0 ? (
             <div className="border border-neutral-200 p-12 text-center">
               <p className="text-sm text-neutral-500">
-                No pieces are currently available
-                in this collection.
+                No pieces are currently available in this collection.
               </p>
 
               <Link
@@ -197,10 +192,7 @@ export default async function CollectionPage({
           ) : (
             <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4 lg:gap-x-8">
               {products.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                />
+                <ProductCard key={product.id} product={product} />
               ))}
             </div>
           )}

@@ -1,11 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import {
-  ChangeEvent,
-  useEffect,
-  useState,
-} from "react";
+import { ChangeEvent, useEffect, useState } from "react";
 
 type ProductImage = {
   id: number;
@@ -19,21 +15,13 @@ type ProductImageManagerProps = {
   productId: number;
 };
 
-type ImageAction =
-  | "primary"
-  | "move-left"
-  | "move-right"
-  | "alt"
-  | "delete";
+type ImageAction = "primary" | "move-left" | "move-right" | "alt" | "delete";
 
-export function ProductImageManager({
-  productId,
-}: ProductImageManagerProps) {
+export function ProductImageManager({ productId }: ProductImageManagerProps) {
   const [images, setImages] = useState<ProductImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [activeAction, setActiveAction] =
-    useState<string | null>(null);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -49,13 +37,10 @@ export function ProductImageManager({
           },
         );
 
-        const data: unknown =
-          await response.json();
+        const data: unknown = await response.json();
 
         if (!response.ok) {
-          throw new Error(
-            "Unable to load product images.",
-          );
+          throw new Error("Unable to load product images.");
         }
 
         if (
@@ -64,15 +49,11 @@ export function ProductImageManager({
           !("images" in data) ||
           !Array.isArray(data.images)
         ) {
-          throw new Error(
-            "Invalid image response.",
-          );
+          throw new Error("Invalid image response.");
         }
 
         if (!cancelled) {
-          setImages(
-            data.images as ProductImage[],
-          );
+          setImages(data.images as ProductImage[]);
           setError("");
         }
       } catch (error) {
@@ -98,21 +79,15 @@ export function ProductImageManager({
   }, [productId]);
 
   async function refreshImages() {
-    const response = await fetch(
-      `/api/admin/products/${productId}/images`,
-      {
-        credentials: "include",
-        cache: "no-store",
-      },
-    );
+    const response = await fetch(`/api/admin/products/${productId}/images`, {
+      credentials: "include",
+      cache: "no-store",
+    });
 
-    const data: unknown =
-      await response.json();
+    const data: unknown = await response.json();
 
     if (!response.ok) {
-      throw new Error(
-        "Unable to refresh product images.",
-      );
+      throw new Error("Unable to refresh product images.");
     }
 
     if (
@@ -121,19 +96,13 @@ export function ProductImageManager({
       !("images" in data) ||
       !Array.isArray(data.images)
     ) {
-      throw new Error(
-        "Invalid image response.",
-      );
+      throw new Error("Invalid image response.");
     }
 
-    setImages(
-      data.images as ProductImage[],
-    );
+    setImages(data.images as ProductImage[]);
   }
 
-  async function handleUpload(
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
+  async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const files = event.target.files;
 
     if (!files || files.length === 0) {
@@ -158,8 +127,7 @@ export function ProductImageManager({
           },
         );
 
-        const data: unknown =
-          await response.json();
+        const data: unknown = await response.json();
 
         if (!response.ok) {
           const message =
@@ -179,9 +147,7 @@ export function ProductImageManager({
       event.target.value = "";
     } catch (error) {
       setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to upload image.",
+        error instanceof Error ? error.message : "Unable to upload image.",
       );
     } finally {
       setUploading(false);
@@ -217,23 +183,17 @@ export function ProductImageManager({
                 ? "set-primary"
                 : action === "alt"
                   ? "update-alt"
-                  : action === "move-left" ||
-                      action === "move-right"
+                  : action === "move-left" || action === "move-right"
                     ? "move"
                     : action,
-            ...(action === "move-left"
-              ? { direction: "left" }
-              : {}),
-            ...(action === "move-right"
-              ? { direction: "right" }
-              : {}),
+            ...(action === "move-left" ? { direction: "left" } : {}),
+            ...(action === "move-right" ? { direction: "right" } : {}),
             ...extra,
           }),
         },
       );
 
-      const data: unknown =
-        await response.json();
+      const data: unknown = await response.json();
 
       if (!response.ok) {
         const message =
@@ -250,35 +210,29 @@ export function ProductImageManager({
       await refreshImages();
     } catch (error) {
       setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to update image.",
+        error instanceof Error ? error.message : "Unable to update image.",
       );
     } finally {
       setActiveAction(null);
     }
   }
 
-  async function handleDelete(
-    image: ProductImage,
-  ) {
+  async function handleDelete(image: ProductImage) {
     if (activeAction) {
       return;
     }
 
-    const confirmed =
-      window.confirm(
-        image.isPrimary
-          ? "This is the primary image. If you delete it, another image will automatically become primary. Continue?"
-          : "Delete this product image?",
-      );
+    const confirmed = window.confirm(
+      image.isPrimary
+        ? "This is the primary image. If you delete it, another image will automatically become primary. Continue?"
+        : "Delete this product image?",
+    );
 
     if (!confirmed) {
       return;
     }
 
-    const actionKey =
-      `${image.id}-delete`;
+    const actionKey = `${image.id}-delete`;
 
     setActiveAction(actionKey);
     setError("");
@@ -292,8 +246,7 @@ export function ProductImageManager({
         },
       );
 
-      const data: unknown =
-        await response.json();
+      const data: unknown = await response.json();
 
       if (!response.ok) {
         const message =
@@ -310,36 +263,23 @@ export function ProductImageManager({
       await refreshImages();
     } catch (error) {
       setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to delete image.",
+        error instanceof Error ? error.message : "Unable to delete image.",
       );
     } finally {
       setActiveAction(null);
     }
   }
 
-  async function handleAltTextSave(
-    imageId: number,
-    altText: string,
-  ) {
-    await updateImage(
-      imageId,
-      "alt",
-      { altText },
-    );
+  async function handleAltTextSave(imageId: number, altText: string) {
+    await updateImage(imageId, "alt", { altText });
   }
 
   if (loading) {
     return (
       <section className="border border-black/10 bg-white p-6 lg:p-8">
-        <h3 className="text-lg font-medium">
-          Product images
-        </h3>
+        <h3 className="text-lg font-medium">Product images</h3>
 
-        <p className="mt-4 text-sm text-neutral-500">
-          Loading images...
-        </p>
+        <p className="mt-4 text-sm text-neutral-500">Loading images...</p>
       </section>
     );
   }
@@ -348,22 +288,17 @@ export function ProductImageManager({
     <section className="border border-black/10 bg-white p-6 lg:p-8">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
-          <h3 className="text-lg font-medium">
-            Product images
-          </h3>
+          <h3 className="text-lg font-medium">Product images</h3>
 
           <p className="mt-2 max-w-2xl text-sm text-neutral-500">
-            Upload multiple product photographs,
-            choose the primary image, arrange the
-            gallery order, and add descriptive alt
-            text for accessibility and SEO.
+            Upload multiple product photographs, choose the primary image,
+            arrange the gallery order, and add descriptive alt text for
+            accessibility and SEO.
           </p>
         </div>
 
         <label className="inline-flex shrink-0 cursor-pointer items-center justify-center bg-black px-5 py-3 text-sm text-white transition hover:bg-neutral-800">
-          {uploading
-            ? "Uploading..."
-            : "Upload images"}
+          {uploading ? "Uploading..." : "Upload images"}
 
           <input
             type="file"
@@ -384,37 +319,24 @@ export function ProductImageManager({
 
       {images.length === 0 ? (
         <div className="mt-6 border border-dashed border-black/15 px-6 py-12 text-center">
-          <p className="text-sm text-neutral-500">
-            No images uploaded yet.
-          </p>
+          <p className="text-sm text-neutral-500">No images uploaded yet.</p>
 
           <p className="mt-2 text-xs text-neutral-400">
-            Add at least one image before
-            publishing this product.
+            Add at least one image before publishing this product.
           </p>
         </div>
       ) : (
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {images.map((image, index) => {
-            const primaryLoading =
-              activeAction ===
-              `${image.id}-primary`;
+            const primaryLoading = activeAction === `${image.id}-primary`;
 
-            const leftLoading =
-              activeAction ===
-              `${image.id}-move-left`;
+            const leftLoading = activeAction === `${image.id}-move-left`;
 
-            const rightLoading =
-              activeAction ===
-              `${image.id}-move-right`;
+            const rightLoading = activeAction === `${image.id}-move-right`;
 
-            const deleteLoading =
-              activeAction ===
-              `${image.id}-delete`;
+            const deleteLoading = activeAction === `${image.id}-delete`;
 
-            const altLoading =
-              activeAction ===
-              `${image.id}-alt`;
+            const altLoading = activeAction === `${image.id}-alt`;
 
             return (
               <div
@@ -424,10 +346,7 @@ export function ProductImageManager({
                 <div className="relative aspect-3/4 bg-neutral-100">
                   <Image
                     src={image.url}
-                    alt={
-                      image.altText ??
-                      "Product image"
-                    }
+                    alt={image.altText ?? "Product image"}
                     fill
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="object-cover"
@@ -446,9 +365,7 @@ export function ProductImageManager({
                       Image {index + 1}
                     </p>
 
-                    <p className="text-xs text-neutral-400">
-                      ID #{image.id}
-                    </p>
+                    <p className="text-xs text-neutral-400">ID #{image.id}</p>
                   </div>
 
                   <div>
@@ -461,50 +378,31 @@ export function ProductImageManager({
 
                     <input
                       id={`alt-${image.id}`}
-                      defaultValue={
-                        image.altText ?? ""
-                      }
+                      defaultValue={image.altText ?? ""}
                       placeholder="Describe this saree image"
                       className="admin-input"
-                      disabled={
-                        activeAction !== null &&
-                        !altLoading
-                      }
-                      onBlur={(event) => {
-                        const value =
-                          event.target.value.trim();
+                      disabled={activeAction !== null && !altLoading}
 
-                        if (
-                          value !==
-                          (image.altText ?? "")
-                        ) {
-                          void handleAltTextSave(
-                            image.id,
-                            value,
-                          );
+                      onBlur={(event) => {
+                        const value = event.target.value.trim();
+                        const previousValue = (image.altText ?? "").trim();
+
+                        if (value !== previousValue) {
+                          void handleAltTextSave(image.id, value);
                         }
                       }}
                     />
 
                     <p className="mt-2 text-xs text-neutral-400">
-                      Saved automatically when you
-                      leave the field.
+                      Saved automatically when you leave the field.
                     </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      disabled={
-                        image.isPrimary ||
-                        activeAction !== null
-                      }
-                      onClick={() =>
-                        void updateImage(
-                          image.id,
-                          "primary",
-                        )
-                      }
+                      disabled={image.isPrimary || activeAction !== null}
+                      onClick={() => void updateImage(image.id, "primary")}
                       className="border border-black/15 px-3 py-2 text-xs transition hover:border-black hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       {primaryLoading
@@ -516,56 +414,31 @@ export function ProductImageManager({
 
                     <button
                       type="button"
-                      disabled={
-                        index === 0 ||
-                        activeAction !== null
-                      }
-                      onClick={() =>
-                        void updateImage(
-                          image.id,
-                          "move-left",
-                        )
-                      }
+                      disabled={index === 0 || activeAction !== null}
+                      onClick={() => void updateImage(image.id, "move-left")}
                       className="border border-black/15 px-3 py-2 text-xs transition hover:border-black hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {leftLoading
-                        ? "Moving..."
-                        : "← Move left"}
+                      {leftLoading ? "Moving..." : "← Move left"}
                     </button>
 
                     <button
                       type="button"
                       disabled={
-                        index ===
-                          images.length - 1 ||
-                        activeAction !== null
+                        index === images.length - 1 || activeAction !== null
                       }
-                      onClick={() =>
-                        void updateImage(
-                          image.id,
-                          "move-right",
-                        )
-                      }
+                      onClick={() => void updateImage(image.id, "move-right")}
                       className="border border-black/15 px-3 py-2 text-xs transition hover:border-black hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {rightLoading
-                        ? "Moving..."
-                        : "Move right →"}
+                      {rightLoading ? "Moving..." : "Move right →"}
                     </button>
 
                     <button
                       type="button"
-                      disabled={
-                        activeAction !== null
-                      }
-                      onClick={() =>
-                        void handleDelete(image)
-                      }
+                      disabled={activeAction !== null}
+                      onClick={() => void handleDelete(image)}
                       className="border border-red-200 px-3 py-2 text-xs text-red-600 transition hover:border-red-600 hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      {deleteLoading
-                        ? "Deleting..."
-                        : "Delete"}
+                      {deleteLoading ? "Deleting..." : "Delete"}
                     </button>
                   </div>
                 </div>

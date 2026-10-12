@@ -259,38 +259,9 @@ export async function PATCH(
       );
     }
 
-    const baseSlug = name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
-
-    if (!baseSlug) {
-      return NextResponse.json(
-        {
-          error: "Product name cannot generate a valid URL slug.",
-        },
-        { status: 400 },
-      );
-    }
-
-    let slug = baseSlug;
-    let suffix = 2;
-
-    while (true) {
-      const existingSlugs = await db.orm.public.Product.where({ slug })
-        .select("id")
-        .all();
-
-      const conflicts = existingSlugs.some((product) => product.id !== id);
-
-      if (!conflicts) {
-        break;
-      }
-
-      slug = `${baseSlug}-${suffix}`;
-      suffix += 1;
-    }
+    // Preserve the existing URL slug when a product is edited.
+    // This avoids breaking previously shared or indexed product URLs.
+    const slug = existing.slug;
 
     const fabric =
       typeof payload.fabric === "string" ? payload.fabric.trim() : "";

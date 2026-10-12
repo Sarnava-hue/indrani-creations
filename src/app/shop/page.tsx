@@ -2,6 +2,33 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { ProductCard } from "@/components/store/product-card";
 import { ShopSort } from "@/components/store/shop-sort";
+import type { Metadata } from "next";
+
+const siteUrl = "https://indranicreations.store";
+
+export const metadata: Metadata = {
+  title: "Shop Sarees & Jewellery Online",
+  description:
+    "Explore sarees, bangles, earrings, and necklaces at Indrani Creations. Discover elegant styles for weddings, festivals, celebrations, and everyday wear.",
+  alternates: {
+    canonical: "/shop",
+  },
+  openGraph: {
+    type: "website",
+    url: `${siteUrl}/shop`,
+    siteName: "Indrani Creations",
+    title: "Shop Sarees & Jewellery Online | Indrani Creations",
+    description:
+      "Discover sarees and jewellery for special occasions and everyday elegance. Explore the collection at Indrani Creations.",
+    locale: "en_IN",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Shop Sarees & Jewellery Online | Indrani Creations",
+    description:
+      "Explore sarees, bangles, earrings, and necklaces at Indrani Creations.",
+  },
+};
 
 const PAGE_SIZE = 8;
 

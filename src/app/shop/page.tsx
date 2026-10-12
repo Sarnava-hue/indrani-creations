@@ -28,6 +28,10 @@ export const metadata: Metadata = {
     description:
       "Explore sarees, bangles, earrings, and necklaces at Indrani Creations.",
   },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 const PAGE_SIZE = 8;

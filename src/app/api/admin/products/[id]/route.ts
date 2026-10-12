@@ -285,6 +285,11 @@ export async function PATCH(
     const description =
       typeof payload.description === "string" ? payload.description.trim() : "";
 
+    const shortDescription =
+      typeof payload.shortDescription === "string"
+        ? payload.shortDescription.trim()
+        : "";
+
     const careInstructions =
       typeof payload.careInstructions === "string"
         ? payload.careInstructions.trim()
@@ -297,6 +302,7 @@ export async function PATCH(
     "name" = ${name},
     "slug" = ${slug},
     "sku" = ${sku},
+    "shortDescription" = NULLIF(${shortDescription}, ''),
     "pricePaise" = ${pricePaise},
 
     "compareAtPricePaise" = NULLIF(

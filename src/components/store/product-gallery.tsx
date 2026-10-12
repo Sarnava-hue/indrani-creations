@@ -16,28 +16,33 @@ type ProductGalleryProps = {
   images: GalleryImage[];
 };
 
-export function ProductGallery({
-  productName,
-  images,
-}: ProductGalleryProps) {
-  const orderedImages = [...images].sort(
-    (a, b) => a.sortOrder - b.sortOrder,
-  );
+function getImageAlt(
+  altText: string | null,
+  productName: string,
+  index: number,
+) {
+  const cleanedAlt = altText?.trim();
+
+  if (cleanedAlt) {
+    return cleanedAlt;
+  }
+
+  return index === 0
+    ? `${productName} - product photo`
+    : `${productName} - product photo ${index + 1}`;
+}
+
+export function ProductGallery({ productName, images }: ProductGalleryProps) {
+  const orderedImages = [...images].sort((a, b) => a.sortOrder - b.sortOrder);
 
   const initialIndex = Math.max(
     0,
-    orderedImages.findIndex(
-      (image) => image.isPrimary,
-    ),
+    orderedImages.findIndex((image) => image.isPrimary),
   );
 
-  const [activeIndex, setActiveIndex] =
-    useState(initialIndex);
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
 
-  const activeImage =
-    orderedImages[activeIndex] ??
-    orderedImages[0] ??
-    null;
+  const activeImage = orderedImages[activeIndex] ?? orderedImages[0] ?? null;
 
   function goToPrevious() {
     if (orderedImages.length <= 1) {
@@ -45,9 +50,7 @@ export function ProductGallery({
     }
 
     setActiveIndex((current) =>
-      current === 0
-        ? orderedImages.length - 1
-        : current - 1,
+      current === 0 ? orderedImages.length - 1 : current - 1,
     );
   }
 
@@ -57,9 +60,7 @@ export function ProductGallery({
     }
 
     setActiveIndex((current) =>
-      current === orderedImages.length - 1
-        ? 0
-        : current + 1,
+      current === orderedImages.length - 1 ? 0 : current + 1,
     );
   }
 
@@ -82,10 +83,7 @@ export function ProductGallery({
         <div className="relative aspect-3/4">
           <Image
             src={activeImage.url}
-            alt={
-              activeImage.altText ??
-              productName
-            }
+            alt={getImageAlt(activeImage.altText, productName, activeIndex)}
             fill
             priority={activeIndex === 0}
             sizes="(max-width: 1024px) 100vw, 55vw"
@@ -100,10 +98,7 @@ export function ProductGallery({
                 aria-label="Previous product image"
                 className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/90 p-3 text-neutral-800 opacity-100 shadow-sm backdrop-blur transition hover:bg-white lg:opacity-0 lg:group-hover:opacity-100"
               >
-                <span
-                  aria-hidden="true"
-                  className="text-lg leading-none"
-                >
+                <span aria-hidden="true" className="text-lg leading-none">
                   ←
                 </span>
               </button>
@@ -114,10 +109,7 @@ export function ProductGallery({
                 aria-label="Next product image"
                 className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/90 p-3 text-neutral-800 opacity-100 shadow-sm backdrop-blur transition hover:bg-white lg:opacity-0 lg:group-hover:opacity-100"
               >
-                <span
-                  aria-hidden="true"
-                  className="text-lg leading-none"
-                >
+                <span aria-hidden="true" className="text-lg leading-none">
                   →
                 </span>
               </button>
@@ -125,8 +117,7 @@ export function ProductGallery({
           ) : null}
 
           <div className="absolute bottom-3 right-3 bg-black/75 px-3 py-1.5 text-[10px] uppercase tracking-widest text-white">
-            {activeIndex + 1} /{" "}
-            {orderedImages.length}
+            {activeIndex + 1} / {orderedImages.length}
           </div>
         </div>
       </div>
@@ -138,41 +129,33 @@ export function ProductGallery({
           role="tablist"
           aria-label="Product images"
         >
-          {orderedImages.map(
-            (image, index) => {
-              const isActive =
-                index === activeIndex;
+          {orderedImages.map((image, index) => {
+            const isActive = index === activeIndex;
 
-              return (
-                <button
-                  key={image.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  aria-label={`View image ${index + 1} of ${orderedImages.length}`}
-                  onClick={() =>
-                    setActiveIndex(index)
-                  }
-                  className={`relative aspect-3/4 overflow-hidden bg-neutral-100 ${
-                    isActive
-                      ? "ring-2 ring-black ring-offset-1"
-                      : "opacity-70 transition hover:opacity-100"
-                  }`}
-                >
-                  <Image
-                    src={image.url}
-                    alt={
-                      image.altText ??
-                      `${productName} image ${index + 1}`
-                    }
-                    fill
-                    sizes="(max-width: 640px) 25vw, 20vw"
-                    className="object-cover"
-                  />
-                </button>
-              );
-            },
-          )}
+            return (
+              <button
+                key={image.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                aria-label={`View image ${index + 1} of ${orderedImages.length}`}
+                onClick={() => setActiveIndex(index)}
+                className={`relative aspect-3/4 overflow-hidden bg-neutral-100 ${
+                  isActive
+                    ? "ring-2 ring-black ring-offset-1"
+                    : "opacity-70 transition hover:opacity-100"
+                }`}
+              >
+                <Image
+                  src={image.url}
+                  alt={getImageAlt(image.altText, productName, index)}
+                  fill
+                  sizes="(max-width: 640px) 25vw, 20vw"
+                  className="object-cover"
+                />
+              </button>
+            );
+          })}
         </div>
       ) : null}
     </div>

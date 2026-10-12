@@ -94,7 +94,14 @@ export async function generateMetadata({
     };
   }
 
-  const { category } = result;
+  const { category, products } = result;
+
+  const collectionImage =
+    category.imageUrl?.trim() || products[0]?.primaryImage?.url;
+
+  const imageUrl = collectionImage
+    ? new URL(collectionImage, "https://indranicreations.store").href
+    : undefined;
 
   const description =
     category.description?.trim() ||
@@ -112,16 +119,18 @@ export async function generateMetadata({
     },
     openGraph: {
       type: "website",
-      url: canonical,
+      url: `https://indranicreations.store${canonical}`,
       siteName: "Indrani Creations",
       title: `${title} | Indrani Creations`,
       description,
       locale: "en_IN",
+      ...(imageUrl ? { images: [{ url: imageUrl, alt: category.name }] } : {}),
     },
     twitter: {
-      card: "summary_large_image",
+      card: imageUrl ? "summary_large_image" : "summary",
       title: `${title} | Indrani Creations`,
       description,
+      ...(imageUrl ? { images: [{ url: imageUrl, alt: category.name }] } : {}),
     },
   };
 }
@@ -137,8 +146,41 @@ export default async function CollectionPage({ params }: PageProps) {
 
   const { category, products } = result;
 
+  const siteUrl = "https://indranicreations.store";
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: siteUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: category.name,
+        item: `${siteUrl}/collections/${category.slug}`,
+      },
+    ],
+  };
+
+  const breadcrumbJsonLdString = JSON.stringify(breadcrumbJsonLd).replace(
+    /</g,
+    "\\u003c",
+  );
+
   return (
     <main className="min-h-screen bg-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: breadcrumbJsonLdString,
+        }}
+      />
+
       {/* Collection heading */}
       <section className="border-b border-neutral-200">
         <div className="mx-auto max-w-360 px-5 py-12 sm:px-8 sm:py-16 lg:px-10 lg:py-20">

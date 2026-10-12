@@ -89,20 +89,36 @@ export async function generateMetadata({ params }: ProductPageProps) {
 
   const { product } = result;
 
+  const description =
+    product.shortDescription?.trim() ||
+    `Discover ${product.name} from Indrani Creations.`;
+
+  const productUrl = `https://indranicreations.store/products/${product.slug}`;
+
+  const resultImage = result.primaryImage?.url;
+  const imageUrl = resultImage
+    ? new URL(resultImage, "https://indranicreations.store").href
+    : undefined;
+
   return {
     title: `${product.name} | Indrani Creations`,
-    description:
-      product.shortDescription ??
-      `Discover ${product.name} from Indrani Creations.`,
+    description,
     alternates: {
       canonical: `/products/${product.slug}`,
     },
     openGraph: {
       title: `${product.name} | Indrani Creations`,
-      description:
-        product.shortDescription ??
-        `Discover ${product.name} from Indrani Creations.`,
+      description,
       type: "website",
+      url: productUrl,
+      siteName: "Indrani Creations",
+      ...(imageUrl ? { images: [{ url: imageUrl, alt: product.name }] } : {}),
+    },
+    twitter: {
+      card: imageUrl ? "summary_large_image" : "summary",
+      title: `${product.name} | Indrani Creations`,
+      description,
+      ...(imageUrl ? { images: [{ url: imageUrl, alt: product.name }] } : {}),
     },
   };
 }
@@ -119,6 +135,40 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const { product, images, primaryImage, inventory, category } = result;
 
   const siteUrl = "https://indranicreations.store";
+
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: siteUrl,
+      },
+      ...(category
+        ? [
+            {
+              "@type": "ListItem",
+              position: 2,
+              name: category.name,
+              item: `${siteUrl}/collections/${category.slug}`,
+            },
+          ]
+        : []),
+      {
+        "@type": "ListItem",
+        position: category ? 3 : 2,
+        name: product.name,
+        item: `${siteUrl}/products/${product.slug}`,
+      },
+    ],
+  };
+
+  const breadcrumbJsonLdString = JSON.stringify(breadcrumbJsonLd).replace(
+    /</g,
+    "\\u003c",
+  );
 
   const availableQuantity =
     (inventory?.quantity ?? 0) - (inventory?.reserved ?? 0);
@@ -203,6 +253,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: productJsonLdString,
+        }}
+      />
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: breadcrumbJsonLdString,
         }}
       />
 

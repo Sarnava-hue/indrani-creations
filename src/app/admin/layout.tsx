@@ -64,20 +64,6 @@ export default async function AdminLayout({
                 >
                   Orders
                 </Link>
-
-                <Link
-                  href="/admin/coupons"
-                  className="block px-3 py-3 text-sm transition hover:bg-neutral-100"
-                >
-                  Coupons
-                </Link>
-
-                <Link
-                  href="/admin/reviews"
-                  className="block px-3 py-3 text-sm transition hover:bg-neutral-100"
-                >
-                  Reviews
-                </Link>
               </div>
             </nav>
 

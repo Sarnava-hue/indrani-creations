@@ -4,11 +4,12 @@ import { ProductCard } from "@/components/store/product-card";
 import { db } from "@/lib/db";
 import Image from "next/image";
 
-const collections = [
+const baseCollections = [
   {
     title: "Sarees",
     subtitle: "The drape that tells your story",
-    href: "/shop?category=all-sarees",
+    slugCandidates: ["all-sarees", "silk-sarees"],
+    fallbackHref: "/shop",
     number: "01",
     image: "/images/collections/sarees.jpeg",
     note: "Silk · Handloom · Everyday",
@@ -16,7 +17,8 @@ const collections = [
   {
     title: "Bangles",
     subtitle: "A little color, a little character",
-    href: "/shop?category=bangles",
+    slugCandidates: ["bangles"],
+    fallbackHref: "/shop",
     number: "02",
     image: "/images/collections/bangles.jpeg",
     note: "Artisanal · Traditional · Colorful",
@@ -24,7 +26,8 @@ const collections = [
   {
     title: "Earrings",
     subtitle: "Details that make a difference",
-    href: "/shop?category=earrings",
+    slugCandidates: ["earrings"],
+    fallbackHref: "/shop",
     number: "03",
     image: "/images/collections/earrings.jpeg",
     note: "Oxidized · Jhumkas · Modern",
@@ -32,7 +35,8 @@ const collections = [
   {
     title: "Necklaces",
     subtitle: "Made for your memorable moments",
-    href: "/shop?category=necklaces",
+    slugCandidates: ["necklaces"],
+    fallbackHref: "/shop",
     number: "04",
     image: "/images/collections/necklaces.jpeg",
     note: "Statement · Traditional · Festive",
@@ -40,24 +44,49 @@ const collections = [
 ];
 
 export default async function HomePage() {
-  const products = await db.orm.public.Product.where({
-    isActive: true,
-    isFeatured: true,
-  })
-    .select(
-      "id",
-      "name",
-      "slug",
-      "pricePaise",
-      "compareAtPricePaise",
-      "fabric",
-      "color",
-      "isOneOfOne",
-      "isFeatured",
-    )
-    .orderBy((product) => product.createdAt.desc())
-    .limit(4)
-    .all();
+  const [activeCategories, products] = await Promise.all([
+    db.orm.public.Category.where({
+      isActive: true,
+    })
+      .select("slug")
+      .all(),
+
+    db.orm.public.Product.where({
+      isActive: true,
+      isFeatured: true,
+    })
+      .select(
+        "id",
+        "name",
+        "slug",
+        "pricePaise",
+        "compareAtPricePaise",
+        "fabric",
+        "color",
+        "isOneOfOne",
+        "isFeatured",
+      )
+      .orderBy((product) => product.createdAt.desc())
+      .limit(4)
+      .all(),
+  ]);
+
+  const activeCategorySlugs = new Set(
+    activeCategories.map((category) => category.slug),
+  );
+
+  const collections = baseCollections.map((collection) => {
+    const matchedSlug = collection.slugCandidates.find((slug) =>
+      activeCategorySlugs.has(slug),
+    );
+
+    return {
+      ...collection,
+      href: matchedSlug
+        ? `/shop?category=${matchedSlug}`
+        : collection.fallbackHref,
+    };
+  });
 
   const productsWithImages = await Promise.all(
     products.map(async (product) => {

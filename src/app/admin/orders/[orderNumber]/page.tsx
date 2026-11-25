@@ -76,6 +76,8 @@ type Payment = {
   paidAt: string | null;
   failureCode: string | null;
   failureNote: string | null;
+  upiTransactionReference: string | null;
+  upiReferenceSubmittedAt: string | null;
 };
 
 type Shipment = {
@@ -142,15 +144,6 @@ const orderStatuses: OrderStatus[] = [
   "REFUNDED",
 ];
 
-const paymentStatuses: PaymentStatus[] = [
-  "PENDING",
-  "AUTHORIZED",
-  "PAID",
-  "FAILED",
-  "REFUNDED",
-  "PARTIALLY_REFUNDED",
-];
-
 const shippingStatuses: ShippingStatus[] = [
   "PENDING",
   "READY_TO_SHIP",
@@ -159,6 +152,23 @@ const shippingStatuses: ShippingStatus[] = [
   "DELIVERED",
   "RETURNED",
 ];
+
+async function fetchAdminOrder(targetOrderNumber: string): Promise<OrderResponse> {
+  const response = await fetch(
+    `/api/admin/orders/${encodeURIComponent(targetOrderNumber)}`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error ?? "Failed to load order");
+  }
+
+  return result as OrderResponse;
+}
 
 type PageProps = {
   params: Promise<{
@@ -183,14 +193,17 @@ export default function AdminOrderDetailPage({
   const [saving, setSaving] =
     useState(false);
 
+  const [verifyingPayment, setVerifyingPayment] =
+    useState(false);
+
   const [error, setError] =
+    useState<string | null>(null);
+
+  const [statusMessage, setStatusMessage] =
     useState<string | null>(null);
 
   const [status, setStatus] =
     useState<OrderStatus>("PENDING");
-
-  const [paymentStatus, setPaymentStatus] =
-    useState<PaymentStatus>("PENDING");
 
   const [shippingStatus, setShippingStatus] =
     useState<ShippingStatus>("PENDING");
@@ -211,30 +224,13 @@ export default function AdminOrderDetailPage({
           resolved.orderNumber,
         );
 
-        const response =
-          await fetch(
-            `/api/admin/orders/${resolved.orderNumber}`,
-            {
-              cache: "no-store",
-            },
-          );
-
-        const result =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            result.error ??
-              "Failed to load order",
-          );
-        }
+        const result = await fetchAdminOrder(
+          resolved.orderNumber,
+        );
 
         if (!cancelled) {
           setData(result);
           setStatus(result.order.status);
-          setPaymentStatus(
-            result.order.paymentStatus,
-          );
           setShippingStatus(
             result.order.shippingStatus,
           );
@@ -269,10 +265,11 @@ export default function AdminOrderDetailPage({
     try {
       setSaving(true);
       setError(null);
+      setStatusMessage(null);
 
       const response =
         await fetch(
-          `/api/admin/orders/${orderNumber}`,
+          `/api/admin/orders/${encodeURIComponent(orderNumber)}`,
           {
             method: "PATCH",
             headers: {
@@ -281,7 +278,6 @@ export default function AdminOrderDetailPage({
             },
             body: JSON.stringify({
               status,
-              paymentStatus,
               shippingStatus,
             }),
           },
@@ -297,17 +293,12 @@ export default function AdminOrderDetailPage({
         );
       }
 
-      setData((current) =>
-        current
-          ? {
-              ...current,
-              order: {
-                ...current.order,
-                ...result.order,
-              },
-            }
-          : current,
-      );
+      const refreshed = await fetchAdminOrder(orderNumber);
+
+      setData(refreshed);
+      setStatus(refreshed.order.status);
+      setShippingStatus(refreshed.order.shippingStatus);
+      setStatusMessage("Order status updated.");
     } catch (error) {
       setError(
         error instanceof Error
@@ -316,6 +307,63 @@ export default function AdminOrderDetailPage({
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function markManualUpiAsPaid() {
+    if (!orderNumber || verifyingPayment || !data?.payment) {
+      return;
+    }
+
+    const hasRef = Boolean(data.payment.upiTransactionReference);
+    const confirmText = hasRef
+      ? `Confirm that you received ${formatINR(data.payment.amountPaise)} for UPI reference ${data.payment.upiTransactionReference}?`
+      : `The customer has not submitted a UPI reference yet. Mark ${formatINR(data.payment.amountPaise)} as PAID anyway?`;
+
+    if (!window.confirm(confirmText)) {
+      return;
+    }
+
+    try {
+      setVerifyingPayment(true);
+      setError(null);
+      setStatusMessage(null);
+
+      const response = await fetch(
+        `/api/payments/${encodeURIComponent(orderNumber)}/status`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status: "PAID",
+          }),
+        },
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error ?? "Failed to verify payment",
+        );
+      }
+
+      const refreshed = await fetchAdminOrder(orderNumber);
+
+      setData(refreshed);
+      setStatus(refreshed.order.status);
+      setShippingStatus(refreshed.order.shippingStatus);
+      setStatusMessage("Payment verified and marked as PAID.");
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to verify payment",
+      );
+    } finally {
+      setVerifyingPayment(false);
     }
   }
 
@@ -402,6 +450,15 @@ export default function AdminOrderDetailPage({
         </div>
       ) : null}
 
+      {statusMessage ? (
+        <div
+          role="status"
+          className="border border-green-200 bg-green-50 p-4 text-sm text-green-800"
+        >
+          {statusMessage}
+        </div>
+      ) : null}
+
       {/* Status management */}
       <section className="border border-neutral-200 bg-white p-6">
         <div className="mb-6">
@@ -456,28 +513,17 @@ export default function AdminOrderDetailPage({
               Payment
             </label>
 
-            <select
+            <input
               id="payment-status"
-              value={paymentStatus}
-              onChange={(event) =>
-                setPaymentStatus(
-                  event.target
-                    .value as PaymentStatus,
-                )
-              }
-              className="admin-input"
-            >
-              {paymentStatuses.map(
-                (value) => (
-                  <option
-                    key={value}
-                    value={value}
-                  >
-                    {label(value)}
-                  </option>
-                ),
-              )}
-            </select>
+              type="text"
+              readOnly
+              value={label(order.paymentStatus)}
+              className="admin-input cursor-not-allowed bg-neutral-50 text-neutral-600"
+            />
+
+            <p className="mt-2 text-xs text-neutral-400">
+              Verified in the Payment section below.
+            </p>
           </div>
 
           <div>
@@ -709,9 +755,73 @@ export default function AdminOrderDetailPage({
                 </div>
               ) : null}
 
+              {payment.provider === "upi_manual" ? (
+                <>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-neutral-500">
+                      UPI reference
+                    </span>
+
+                    <span className="break-all text-right font-mono text-xs text-neutral-900">
+                      {payment.upiTransactionReference ??
+                        "Not submitted yet"}
+                    </span>
+                  </div>
+
+                  {payment.upiReferenceSubmittedAt ? (
+                    <div className="flex justify-between gap-4">
+                      <span className="text-neutral-500">
+                        Submitted at
+                      </span>
+
+                      <span className="text-right text-xs text-neutral-700">
+                        {formatDate(
+                          payment.upiReferenceSubmittedAt,
+                        )}
+                      </span>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+
+              {payment.paidAt ? (
+                <div className="flex justify-between gap-4">
+                  <span className="text-neutral-500">
+                    Paid at
+                  </span>
+
+                  <span className="text-right text-xs text-neutral-700">
+                    {formatDate(payment.paidAt)}
+                  </span>
+                </div>
+              ) : null}
+
               {payment.failureNote ? (
                 <div className="border border-red-200 bg-red-50 p-3 text-xs text-red-700">
                   {payment.failureNote}
+                </div>
+              ) : null}
+
+              {payment.provider === "upi_manual" &&
+              payment.status === "PENDING" &&
+              order.status !== "CANCELLED" ? (
+                <div className="border-t border-neutral-200 pt-4">
+                  <p className="mb-3 text-xs leading-5 text-neutral-600">
+                    {payment.upiTransactionReference
+                      ? "Check your bank or UPI app for this reference and amount before confirming payment."
+                      : "The customer has not submitted a UPI reference yet. Only confirm if you have verified receipt in your bank/UPI account."}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => void markManualUpiAsPaid()}
+                    disabled={verifyingPayment}
+                    className="w-full bg-black px-5 py-3 text-xs uppercase tracking-widest text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {verifyingPayment
+                      ? "Verifying..."
+                      : "Verify & Mark as Paid"}
+                  </button>
                 </div>
               ) : null}
             </div>

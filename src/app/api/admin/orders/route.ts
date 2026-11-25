@@ -39,6 +39,26 @@ export async function GET() {
       .limit(100)
       .all();
 
+    const orderIds = orders.map((order) => order.id);
+
+    const payments =
+      orderIds.length > 0
+        ? await db.orm.public.Payment.where((payment) =>
+            payment.orderId.in(orderIds),
+          )
+            .select(
+              "orderId",
+              "provider",
+              "upiTransactionReference",
+              "upiReferenceSubmittedAt",
+            )
+            .all()
+        : [];
+
+    const paymentMap = new Map(
+      payments.map((payment) => [payment.orderId, payment]),
+    );
+
     const ordersWithItems =
       await Promise.all(
         orders.map(async (order) => {
@@ -58,6 +78,8 @@ export async function GET() {
               )
               .all();
 
+          const payment = paymentMap.get(order.id) ?? null;
+
           return {
             ...order,
             items,
@@ -65,6 +87,9 @@ export async function GET() {
               (total, item) =>
                 total + item.quantity,
               0,
+            ),
+            upiReferenceSubmitted: Boolean(
+              payment?.upiTransactionReference,
             ),
           };
         }),

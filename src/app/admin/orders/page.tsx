@@ -51,6 +51,7 @@ type Order = {
   createdAt: string;
   updatedAt: string;
   itemCount: number;
+  upiReferenceSubmitted?: boolean;
 };
 
 function formatINR(
@@ -336,6 +337,13 @@ export default function AdminOrdersPage() {
                           order.paymentStatus,
                         )}
                       </span>
+
+                      {order.paymentStatus === "PENDING" &&
+                      order.upiReferenceSubmitted ? (
+                        <p className="mt-1 text-[10px] uppercase tracking-wider text-blue-700">
+                          UPI ref submitted
+                        </p>
+                      ) : null}
                     </td>
 
                     <td className="px-5 py-5">

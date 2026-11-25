@@ -91,6 +91,8 @@ export async function GET(_request: Request, context: RouteContext) {
         "paidAt",
         "failureCode",
         "failureNote",
+        "upiTransactionReference",
+        "upiReferenceSubmittedAt",
         "createdAt",
         "updatedAt",
       )

@@ -28,14 +28,28 @@ export async function expirePendingOrders(): Promise<ExpirationResult> {
       status: "PENDING",
       paymentStatus: "PENDING",
     })
+    .where((order) => order.createdAt.lte(cutoff.toISOString()))
     .select("id", "orderNumber", "createdAt")
     .all();
 
+  const pendingOrderIds = pendingOrders.map((order) => order.id);
+
+  const submittedPayments =
+    pendingOrderIds.length > 0
+      ? await db.orm.public.Payment.where((payment) =>
+          payment.orderId.in(pendingOrderIds),
+        )
+          .where((payment) => payment.upiTransactionReference.isNotNull())
+          .select("orderId")
+          .all()
+      : [];
+
+  const ordersWithUpiReference = new Set(
+    submittedPayments.map((payment) => payment.orderId),
+  );
+
   const eligibleOrders = pendingOrders
-    .filter((order) => {
-      const createdAt = new Date(order.createdAt);
-      return createdAt <= cutoff;
-    })
+    .filter((order) => !ordersWithUpiReference.has(order.id))
     .slice(0, MAX_ORDERS_PER_RUN);
 
   const result: ExpirationResult = {
@@ -50,23 +64,29 @@ export async function expirePendingOrders(): Promise<ExpirationResult> {
   for (const order of eligibleOrders) {
     try {
       const cancelled = await db.transaction(async (tx) => {
-        // Cancel only if the order is still pending and expired.
-        const updatePlan = db.sql.public.order
-          .update({ status: "CANCELLED" })
-          .where((fields, fns) =>
-            fns.and(
-              fns.eq(fields.id, order.id),
-              fns.eq(fields.status, "PENDING"),
-              fns.eq(fields.paymentStatus, "PENDING"),
-              fns.lte(fields.createdAt, cutoff.toISOString())
+        // Cancel only if still pending, past cutoff, and no UPI reference was submitted.
+        const cancelPlan = db.raw.sql`
+          UPDATE "order"
+          SET
+            "status" = 'CANCELLED',
+            "updatedAt" = NOW()
+          WHERE "id" = ${order.id}
+            AND "status" = 'PENDING'
+            AND "paymentStatus" = 'PENDING'
+            AND "createdAt" <= NOW() - make_interval(mins => ${EXPIRATION_MINUTES})
+            AND NOT EXISTS (
+              SELECT 1
+              FROM "payment"
+              WHERE "orderId" = ${order.id}
+                AND "upiTransactionReference" IS NOT NULL
             )
-          )
-          .returning("id")
+        `
+          .affectedCount()
           .build();
 
-        const updatedOrders = await tx.query(updatePlan);
+        const cancelResult = await tx.execute(cancelPlan);
 
-        if (updatedOrders.length !== 1) {
+        if (cancelResult.affectedRows !== 1) {
           return false;
         }
 

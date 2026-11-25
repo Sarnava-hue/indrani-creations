@@ -54,11 +54,18 @@ export async function POST(request: Request, context: RouteContext) {
     const order = await db.orm.public.Order.where({
       orderNumber: orderNumber.trim(),
     })
-      .select("id", "orderNumber", "paymentStatus")
+      .select("id", "orderNumber", "status", "paymentStatus")
       .first();
 
     if (!order) {
       return NextResponse.json({ error: "Order not found." }, { status: 404 });
+    }
+
+    if (order.status === "CANCELLED") {
+      return NextResponse.json(
+        { error: "Cancelled orders cannot be marked as paid." },
+        { status: 409 },
+      );
     }
 
     if (order.paymentStatus === "PAID") {
@@ -92,51 +99,64 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    // Update both records in one database transaction.
+    const paidAt = new Date().toISOString();
+    const nextOrderStatus =
+      order.status === "PENDING" ? "CONFIRMED" : order.status;
+
+    // Update both records atomically in one database transaction.
     const result = await db.transaction(async (tx) => {
       const paymentPlan = db.sql.public.payment
         .update({
           status: "PAID",
-          paidAt: new Date().toISOString(),
+          paidAt,
         })
-        .where((fields, fns) => fns.eq(fields.id, payment.id))
-        .returning("id")
+        .where((fields, fns) =>
+          fns.and(
+            fns.eq(fields.id, payment.id),
+            fns.eq(fields.status, "PENDING"),
+          ),
+        )
+        .returning("id", "status", "paidAt")
         .build();
 
-      const updatedPayments = await tx.execute(paymentPlan);
+      const updatedPayments = await tx.query(paymentPlan);
 
-      if (updatedPayments.affectedRows !== 1) {
+      if (updatedPayments.length !== 1) {
         throw new Error("Payment status update failed.");
       }
 
       const orderPlan = db.sql.public.order
         .update({
           paymentStatus: "PAID",
+          status: nextOrderStatus,
         })
-        .where((fields, fns) => fns.eq(fields.id, order.id))
-        .returning("id", "orderNumber", "paymentStatus")
+        .where((fields, fns) =>
+          fns.and(
+            fns.eq(fields.id, order.id),
+            fns.eq(fields.status, order.status),
+            fns.eq(fields.paymentStatus, "PENDING"),
+            fns.ne(fields.status, "CANCELLED"),
+          ),
+        )
+        .returning("id", "orderNumber", "status", "paymentStatus", "updatedAt")
         .build();
 
-      const updatedOrders = await tx.execute(orderPlan);
+      const updatedOrders = await tx.query(orderPlan);
 
-      if (updatedOrders.affectedRows !== 1) {
-        throw new Error("Order payment status update failed.");
-      }
-
-      if (updatedOrders.affectedRows !== 1) {
+      if (updatedOrders.length !== 1) {
         throw new Error("Order payment status update failed.");
       }
 
       return {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        paymentStatus: "PAID" as const,
+        order: updatedOrders[0],
+        payment: updatedPayments[0],
       };
     });
 
     return NextResponse.json({
       success: true,
-      order: result,
+      order: result.order,
+      payment: result.payment,
     });
   } catch (error) {
     console.error("Failed to update payment status:", error);

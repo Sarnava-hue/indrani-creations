@@ -30,6 +30,7 @@ export async function expirePendingOrders(): Promise<ExpirationResult> {
     })
     .where((order) => order.createdAt.lte(cutoff.toISOString()))
     .select("id", "orderNumber", "createdAt")
+    .orderBy((order) => order.createdAt.asc())
     .all();
 
   const pendingOrderIds = pendingOrders.map((order) => order.id);

@@ -6,6 +6,11 @@ import {
   createGuestAccessToken,
   getGuestOrderCookieName,
 } from "@/lib/orders/guest-token";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitResponse,
+} from "@/lib/security/rate-limit";
 
 type OrderItemInput = {
   productId: number;
@@ -72,8 +77,34 @@ function generateOrderNumber(): string {
 
 export async function POST(request: Request) {
   try {
+    const clientIp = getClientIp(request);
+
+    const orderLimit = checkRateLimit(`orders:create:ip:${clientIp}`, {
+      limit: 8,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (!orderLimit.allowed) {
+      return rateLimitResponse(
+        orderLimit.retryAfterSeconds,
+        "Too many orders placed from this network. Please wait a few minutes before trying again.",
+      );
+    }
+
     const session = await getSession();
-    const body: unknown = await request.json();
+
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          error: "Invalid request body.",
+        },
+        { status: 400 },
+      );
+    }
 
     if (typeof body !== "object" || body === null) {
       return NextResponse.json(

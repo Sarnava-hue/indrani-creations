@@ -73,6 +73,9 @@ export async function getSession():
       await jwtVerify(
         token,
         getAuthSecret(),
+        {
+          algorithms: ["HS256"],
+        },
       );
 
     if (

@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitResponse,
+} from "@/lib/security/rate-limit";
 
 type LoginInput = {
   email: string;
@@ -15,7 +20,32 @@ function isValidEmail(value: string): boolean {
 
 export async function POST(request: Request) {
   try {
-    const body: unknown = await request.json();
+    const clientIp = getClientIp(request);
+
+    const ipLimit = checkRateLimit(`auth:login:ip:${clientIp}`, {
+      limit: 20,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (!ipLimit.allowed) {
+      return rateLimitResponse(
+        ipLimit.retryAfterSeconds,
+        "Too many sign-in attempts. Please wait a few minutes before trying again.",
+      );
+    }
+
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          error: "Invalid request body.",
+        },
+        { status: 400 },
+      );
+    }
 
     if (
       typeof body !== "object" ||
@@ -59,6 +89,21 @@ export async function POST(request: Request) {
             "Please provide a valid email address.",
         },
         { status: 400 },
+      );
+    }
+
+    const emailLimit = checkRateLimit(
+      `auth:login:ip-email:${clientIp}:${email}`,
+      {
+        limit: 10,
+        windowMs: 15 * 60 * 1000,
+      },
+    );
+
+    if (!emailLimit.allowed) {
+      return rateLimitResponse(
+        emailLimit.retryAfterSeconds,
+        "Too many sign-in attempts for this account. Please try again later.",
       );
     }
 

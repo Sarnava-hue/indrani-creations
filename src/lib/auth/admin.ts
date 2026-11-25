@@ -3,19 +3,60 @@ import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/session";
 import type { SessionPayload } from "@/lib/auth/types";
+import { db } from "@/lib/db";
 
-export async function requireAdmin(): Promise<SessionPayload> {
+async function resolveAdminSession(): Promise<
+  | { status: "ok"; session: SessionPayload }
+  | { status: "unauthenticated" }
+  | { status: "forbidden" }
+> {
   const session = await getSession();
 
   if (!session) {
-    redirect("/login?redirect=/admin");
+    return { status: "unauthenticated" };
   }
 
   if (session.role !== "ADMIN") {
+    return { status: "forbidden" };
+  }
+
+  // Re-check role in the database so demoted/deleted accounts lose access immediately.
+  const user = await db.orm.public.User.where({
+    id: session.userId,
+  })
+    .select("id", "email", "role")
+    .first();
+
+  if (!user) {
+    return { status: "unauthenticated" };
+  }
+
+  if (user.role !== "ADMIN") {
+    return { status: "forbidden" };
+  }
+
+  return {
+    status: "ok",
+    session: {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    },
+  };
+}
+
+export async function requireAdmin(): Promise<SessionPayload> {
+  const auth = await resolveAdminSession();
+
+  if (auth.status === "unauthenticated") {
+    redirect("/login?redirect=/admin");
+  }
+
+  if (auth.status === "forbidden") {
     redirect("/account");
   }
 
-  return session;
+  return auth.session;
 }
 
 type AdminApiAuthResult =
@@ -23,9 +64,9 @@ type AdminApiAuthResult =
   | { session: null; response: NextResponse };
 
 export async function requireAdminApi(): Promise<AdminApiAuthResult> {
-  const session = await getSession();
+  const auth = await resolveAdminSession();
 
-  if (!session) {
+  if (auth.status === "unauthenticated") {
     return {
       session: null,
       response: NextResponse.json(
@@ -35,7 +76,7 @@ export async function requireAdminApi(): Promise<AdminApiAuthResult> {
     };
   }
 
-  if (session.role !== "ADMIN") {
+  if (auth.status === "forbidden") {
     return {
       session: null,
       response: NextResponse.json(
@@ -46,7 +87,7 @@ export async function requireAdminApi(): Promise<AdminApiAuthResult> {
   }
 
   return {
-    session,
+    session: auth.session,
     response: null,
   };
 }

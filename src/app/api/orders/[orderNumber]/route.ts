@@ -8,6 +8,11 @@ import {
   getGuestOrderCookieName,
   verifyGuestAccessToken,
 } from "@/lib/orders/guest-token";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitResponse,
+} from "@/lib/security/rate-limit";
 
 type RouteContext = {
   params: Promise<{ orderNumber: string }>;
@@ -26,6 +31,19 @@ export async function GET(request: Request, context: RouteContext) {
         { error: "Invalid order number." },
         { status: 400 },
       );
+    }
+
+    const clientIp = getClientIp(request);
+    const lookupLimit = checkRateLimit(
+      `orders:get:ip:${clientIp}:${orderNumber.trim()}`,
+      {
+        limit: 30,
+        windowMs: 15 * 60 * 1000,
+      },
+    );
+
+    if (!lookupLimit.allowed) {
+      return rateLimitResponse(lookupLimit.retryAfterSeconds);
     }
 
     const order = await db.orm.public.Order.where({

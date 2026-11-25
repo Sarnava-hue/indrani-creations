@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitResponse,
+} from "@/lib/security/rate-limit";
 
 type RegisterInput = {
   name: string;
@@ -42,8 +47,33 @@ export async function POST(
   request: Request,
 ) {
   try {
-    const body: unknown =
-      await request.json();
+    const clientIp = getClientIp(request);
+
+    const ipLimit = checkRateLimit(`auth:register:ip:${clientIp}`, {
+      limit: 10,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (!ipLimit.allowed) {
+      return rateLimitResponse(
+        ipLimit.retryAfterSeconds,
+        "Too many registration attempts. Please try again later.",
+      );
+    }
+
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          error:
+            "Invalid request body.",
+        },
+        { status: 400 },
+      );
+    }
 
     if (
       typeof body !== "object" ||

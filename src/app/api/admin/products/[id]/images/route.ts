@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { mkdir, writeFile } from "fs/promises";
+import { mkdir, unlink, writeFile } from "fs/promises";
 import path from "path";
 import crypto from "crypto";
 
 import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
+import { detectImageFormat } from "@/lib/security/image-validation";
 
 function parseId(value: string) {
   const id = Number(value);
@@ -168,97 +169,103 @@ export async function POST(
       );
     }
 
-    const extensionMap: Record<
-      string,
-      string
-    > = {
-      "image/jpeg": "jpg",
-      "image/png": "png",
-      "image/webp": "webp",
-      "image/avif": "avif",
-    };
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
 
-    const extension =
-      extensionMap[file.type];
+    const detectedFormat = detectImageFormat(buffer);
 
-    const filename = `${crypto.randomUUID()}.${extension}`;
-
-    const uploadDirectory =
-      path.join(
-        process.cwd(),
-        "public",
-        "products",
-        String(productId),
+    if (!detectedFormat || detectedFormat.mimeType !== file.type) {
+      return NextResponse.json(
+        {
+          error:
+            "File contents do not match a valid JPEG, PNG, WebP, or AVIF image.",
+        },
+        { status: 400 },
       );
-
-    await mkdir(uploadDirectory, {
-      recursive: true,
-    });
-
-    const filePath =
-      path.join(
-        uploadDirectory,
-        filename,
-      );
-
-    const bytes =
-      await file.arrayBuffer();
-
-    await writeFile(
-      filePath,
-      Buffer.from(bytes),
-    );
-
-    const existingImages =
-      await db.orm.public.ProductImage
-        .where({ productId })
-        .select(
-          "id",
-          "isPrimary",
-          "sortOrder",
-        )
-        .all();
-
-    const isFirstImage =
-      existingImages.length === 0;
-
-    const nextSortOrder =
-      existingImages.reduce(
-        (highest, image) =>
-          Math.max(
-            highest,
-            image.sortOrder,
-          ),
-        -1,
-      ) + 1;
+    }
 
     const altText =
       typeof altTextValue === "string"
         ? altTextValue.trim() || null
         : null;
 
-    const image =
-      await db.orm.public.ProductImage.create({
-        productId,
-        url: `/products/${productId}/${filename}`,
-        altText,
-        sortOrder: nextSortOrder,
-        isPrimary: isFirstImage,
-      });
+    if (altText && altText.length > 300) {
+      return NextResponse.json(
+        { error: "Alt text must be 300 characters or fewer." },
+        { status: 400 },
+      );
+    }
 
-    return NextResponse.json(
-      {
-        success: true,
-        image: {
-          id: image.id,
-          url: image.url,
-          altText: image.altText,
-          sortOrder: image.sortOrder,
-          isPrimary: image.isPrimary,
+    const filename = `${crypto.randomUUID()}.${detectedFormat.extension}`;
+
+    const productsRoot = path.resolve(process.cwd(), "public", "products");
+    const uploadDirectory = path.resolve(productsRoot, String(productId));
+
+    if (!uploadDirectory.startsWith(`${productsRoot}${path.sep}`)) {
+      return NextResponse.json(
+        { error: "Invalid product upload directory." },
+        { status: 400 },
+      );
+    }
+
+    await mkdir(uploadDirectory, {
+      recursive: true,
+    });
+
+    const filePath = path.resolve(uploadDirectory, filename);
+
+    await writeFile(filePath, buffer);
+
+    try {
+      const existingImages =
+        await db.orm.public.ProductImage
+          .where({ productId })
+          .select(
+            "id",
+            "isPrimary",
+            "sortOrder",
+          )
+          .all();
+
+      const isFirstImage =
+        existingImages.length === 0;
+
+      const nextSortOrder =
+        existingImages.reduce(
+          (highest, image) =>
+            Math.max(
+              highest,
+              image.sortOrder,
+            ),
+          -1,
+        ) + 1;
+
+      const image =
+        await db.orm.public.ProductImage.create({
+          productId,
+          url: `/products/${productId}/${filename}`,
+          altText,
+          sortOrder: nextSortOrder,
+          isPrimary: isFirstImage,
+        });
+
+      return NextResponse.json(
+        {
+          success: true,
+          image: {
+            id: image.id,
+            url: image.url,
+            altText: image.altText,
+            sortOrder: image.sortOrder,
+            isPrimary: image.isPrimary,
+          },
         },
-      },
-      { status: 201 },
-    );
+        { status: 201 },
+      );
+    } catch (dbError) {
+      await unlink(filePath).catch(() => {});
+      throw dbError;
+    }
   } catch (error) {
     console.error(
       "Failed to upload product image:",

@@ -8,6 +8,11 @@ import {
   getGuestOrderCookieName,
   verifyGuestAccessToken,
 } from "@/lib/orders/guest-token";
+import {
+  checkRateLimit,
+  getClientIp,
+  rateLimitResponse,
+} from "@/lib/security/rate-limit";
 
 type RouteContext = {
   params: Promise<{ orderNumber: string }>;
@@ -37,7 +42,32 @@ export async function POST(request: Request, context: RouteContext) {
       );
     }
 
-    const body: unknown = await request.json();
+    const clientIp = getClientIp(request);
+    const upiLimit = checkRateLimit(
+      `orders:upi-ref:ip:${clientIp}:${orderNumber.trim()}`,
+      {
+        limit: 10,
+        windowMs: 15 * 60 * 1000,
+      },
+    );
+
+    if (!upiLimit.allowed) {
+      return rateLimitResponse(
+        upiLimit.retryAfterSeconds,
+        "Too many attempts. Please wait a few minutes before trying again.",
+      );
+    }
+
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid request body." },
+        { status: 400 },
+      );
+    }
 
     if (
       typeof body !== "object" ||

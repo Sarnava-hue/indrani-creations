@@ -3,8 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useOptionalWishlist } from "@/components/store/wishlist-provider";
+
 export default function LogoutButton() {
   const router = useRouter();
+  const wishlist = useOptionalWishlist();
 
   const [loading, setLoading] =
     useState(false);
@@ -32,6 +35,7 @@ export default function LogoutButton() {
         );
       }
 
+      wishlist?.resetWishlist();
       router.replace("/login");
       router.refresh();
     } catch (error) {

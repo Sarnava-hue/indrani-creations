@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { formatINR } from "@/lib/utils/currency";
 import { useCart } from "@/components/store/cart-provider";
+import { useWishlist } from "@/components/store/wishlist-provider";
 
 type WishlistProductImage = {
   id: number;
@@ -43,6 +44,7 @@ type WishlistItem = {
 export default function WishlistPage() {
   const router = useRouter();
   const { addItem } = useCart();
+  const { syncSavedIds, removeSavedId } = useWishlist();
 
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
 
@@ -88,7 +90,9 @@ export default function WishlistPage() {
         }
 
         if (!cancelled) {
-          setWishlist(data.wishlist as WishlistItem[]);
+          const loaded = data.wishlist as WishlistItem[];
+          setWishlist(loaded);
+          syncSavedIds(loaded.map((item) => item.product.id));
         }
       } catch (err) {
         console.error("Failed to load wishlist:", err);
@@ -108,7 +112,7 @@ export default function WishlistPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, syncSavedIds]);
 
   async function removeFromWishlist(productId: number) {
     if (removingId !== null) {
@@ -152,6 +156,7 @@ export default function WishlistPage() {
       setWishlist((current) =>
         current.filter((item) => item.product.id !== productId),
       );
+      removeSavedId(productId);
     } catch (err) {
       console.error("Failed to remove wishlist item:", err);
 

@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+
+import { useWishlist } from "@/components/store/wishlist-provider";
 
 type WishlistButtonProps = {
   productId: number;
@@ -13,120 +15,39 @@ export function WishlistButton({
   productName,
 }: WishlistButtonProps) {
   const router = useRouter();
-
-  const [saved, setSaved] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const {
+    authenticated,
+    isSaved,
+    isPending,
+    ensureLoaded,
+    toggleWishlist,
+  } = useWishlist();
 
   useEffect(() => {
-    let cancelled = false;
+    void ensureLoaded();
+  }, [ensureLoaded]);
 
-    async function loadWishlistState() {
-      try {
-        const response = await fetch("/api/account/wishlist", {
-          credentials: "include",
-          cache: "no-store",
-        });
-
-        if (response.status === 401) {
-          if (!cancelled) {
-            setAuthenticated(false);
-          }
-
-          return;
-        }
-
-        if (!response.ok) {
-          return;
-        }
-
-        const data: unknown = await response.json();
-
-        if (
-          typeof data !== "object" ||
-          data === null ||
-          !("wishlist" in data) ||
-          !Array.isArray(data.wishlist)
-        ) {
-          return;
-        }
-
-        const exists = data.wishlist.some(
-          (item) =>
-            typeof item === "object" &&
-            item !== null &&
-            "product" in item &&
-            typeof item.product === "object" &&
-            item.product !== null &&
-            "id" in item.product &&
-            item.product.id === productId,
-        );
-
-        if (!cancelled) {
-          setAuthenticated(true);
-          setSaved(exists);
-        }
-      } catch (error) {
-        console.error("Failed to load wishlist state:", error);
-      }
-    }
-
-    void loadWishlistState();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [productId]);
+  const saved = isSaved(productId);
+  const loading = isPending(productId);
 
   async function handleToggleWishlist() {
     if (loading) {
       return;
     }
 
-    try {
-      setLoading(true);
+    if (authenticated === false) {
+      router.push(
+        `/login?redirect=${encodeURIComponent(window.location.pathname)}`,
+      );
+      return;
+    }
 
-      const method = saved ? "DELETE" : "POST";
+    const result = await toggleWishlist(productId);
 
-      const response = await fetch("/api/account/wishlist", {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          productId,
-        }),
-      });
-
-      if (response.status === 401) {
-        router.push(
-          `/login?redirect=${encodeURIComponent(window.location.pathname)}`,
-        );
-
-        return;
-      }
-
-      const data: unknown = await response.json();
-
-      if (!response.ok) {
-        const message =
-          typeof data === "object" &&
-          data !== null &&
-          "error" in data &&
-          typeof data.error === "string"
-            ? data.error
-            : "Unable to update your wishlist.";
-
-        throw new Error(message);
-      }
-
-      setAuthenticated(true);
-      setSaved(!saved);
-    } catch (error) {
-      console.error("Failed to update wishlist:", error);
-    } finally {
-      setLoading(false);
+    if (!result.ok && result.unauthenticated) {
+      router.push(
+        `/login?redirect=${encodeURIComponent(window.location.pathname)}`,
+      );
     }
   }
 

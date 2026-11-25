@@ -4,9 +4,8 @@ import { ProductCard } from "@/components/store/product-card";
 import { ShopSort } from "@/components/store/shop-sort";
 import { getActiveCategories } from "@/lib/store/categories";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
+import { SITE_URL } from "@/lib/config/site";
 import type { Metadata } from "next";
-
-const siteUrl = "https://indranicreations.store";
 
 export const metadata: Metadata = {
   title: "Shop Sarees & Jewellery Online",
@@ -17,7 +16,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    url: `${siteUrl}/shop`,
+    url: `${SITE_URL}/shop`,
     siteName: "Indrani Creations",
     title: "Shop Sarees & Jewellery Online | Indrani Creations",
     description:

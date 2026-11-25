@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/store/cart-provider";
+import { SITE_URL } from "@/lib/config/site";
 import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
@@ -14,10 +15,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const siteUrl = "https://indranicreations.store";
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(SITE_URL),
 
   title: {
     default: "Indrani Creations | Shop Sarees Online",
@@ -31,7 +30,7 @@ export const metadata: Metadata = {
 
   openGraph: {
     type: "website",
-    url: siteUrl,
+    url: SITE_URL,
     siteName: "Indrani Creations",
     title: "Indrani Creations | Shop Sarees Online",
     description:
@@ -63,7 +62,7 @@ const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
   name: "Indrani Creations",
-  url: "https://indranicreations.store",
+  url: SITE_URL,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

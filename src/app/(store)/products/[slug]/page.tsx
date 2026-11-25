@@ -8,6 +8,7 @@ import { AddToBagButton } from "@/components/store/add-to-bag-button";
 import { ProductGallery } from "@/components/store/product-gallery";
 import { ProductCard } from "@/components/store/product-card";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
+import { SITE_URL } from "@/lib/config/site";
 
 type ProductPageProps = {
   params: Promise<{
@@ -121,11 +122,11 @@ export async function generateMetadata({ params }: ProductPageProps) {
     product.shortDescription?.trim() ||
     `Discover ${product.name} from Indrani Creations.`;
 
-  const productUrl = `https://indranicreations.store/products/${product.slug}`;
+  const productUrl = `${SITE_URL}/products/${product.slug}`;
 
   const resultImage = result.primaryImage?.url;
   const imageUrl = resultImage
-    ? new URL(resultImage, "https://indranicreations.store").href
+    ? new URL(resultImage, SITE_URL).href
     : undefined;
 
   return {
@@ -169,8 +170,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
     relatedProductsWithImages,
   } = result;
 
-  const siteUrl = "https://indranicreations.store";
-
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -179,7 +178,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         "@type": "ListItem",
         position: 1,
         name: "Home",
-        item: siteUrl,
+        item: SITE_URL,
       },
       ...(category
         ? [
@@ -187,7 +186,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               "@type": "ListItem",
               position: 2,
               name: category.name,
-              item: `${siteUrl}/collections/${category.slug}`,
+              item: `${SITE_URL}/collections/${category.slug}`,
             },
           ]
         : []),
@@ -195,7 +194,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         "@type": "ListItem",
         position: category ? 3 : 2,
         name: product.name,
-        item: `${siteUrl}/products/${product.slug}`,
+        item: `${SITE_URL}/products/${product.slug}`,
       },
     ],
   };
@@ -219,12 +218,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
       product.shortDescription ||
       `Discover ${product.name} at Indrani Creations.`,
     sku: product.sku,
-    url: `${siteUrl}/products/${product.slug}`,
-    image: images.map((image) => new URL(image.url, siteUrl).href),
+    url: `${SITE_URL}/products/${product.slug}`,
+    image: images.map((image) => new URL(image.url, SITE_URL).href),
     ...(category ? { category: category.name } : {}),
     offers: {
       "@type": "Offer",
-      url: `${siteUrl}/products/${product.slug}`,
+      url: `${SITE_URL}/products/${product.slug}`,
       priceCurrency: "INR",
       price: (product.pricePaise / 100).toFixed(2),
       availability: isAvailable

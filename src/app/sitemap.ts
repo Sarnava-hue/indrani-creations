@@ -1,8 +1,7 @@
 
 import type { MetadataRoute } from "next";
 import { db } from "@/lib/db";
-
-const siteUrl = "https://indranicreations.store";
+import { SITE_URL } from "@/lib/config/site";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [products, categories] = await Promise.all([
@@ -21,44 +20,44 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     {
-      url: siteUrl,
+      url: SITE_URL,
       changeFrequency: "weekly",
       priority: 1,
     },
     {
-      url: `${siteUrl}/shop`,
+      url: `${SITE_URL}/shop`,
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
-      url: `${siteUrl}/about`,
+      url: `${SITE_URL}/about`,
       changeFrequency: "monthly",
       priority: 0.5,
     },
     {
-      url: `${siteUrl}/contact`,
+      url: `${SITE_URL}/contact`,
       changeFrequency: "monthly",
       priority: 0.4,
     },
     {
-      url: `${siteUrl}/shipping`,
+      url: `${SITE_URL}/shipping`,
       changeFrequency: "monthly",
       priority: 0.4,
     },
     {
-      url: `${siteUrl}/returns`,
+      url: `${SITE_URL}/returns`,
       changeFrequency: "monthly",
       priority: 0.4,
     },
 
     ...categories.map((category) => ({
-      url: `${siteUrl}/collections/${category.slug}`,
+      url: `${SITE_URL}/collections/${category.slug}`,
       changeFrequency: "weekly" as const,
       priority: 0.8,
     })),
 
     ...products.map((product) => ({
-      url: `${siteUrl}/products/${product.slug}`,
+      url: `${SITE_URL}/products/${product.slug}`,
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })),

@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { ProductCard } from "@/components/store/product-card";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
+import { SITE_URL } from "@/lib/config/site";
 
 type PageProps = {
   params: Promise<{
@@ -85,7 +86,7 @@ export async function generateMetadata({
     category.imageUrl?.trim() || products[0]?.primaryImage?.url;
 
   const imageUrl = collectionImage
-    ? new URL(collectionImage, "https://indranicreations.store").href
+    ? new URL(collectionImage, SITE_URL).href
     : undefined;
 
   const description =
@@ -104,7 +105,7 @@ export async function generateMetadata({
     },
     openGraph: {
       type: "website",
-      url: `https://indranicreations.store${canonical}`,
+      url: `${SITE_URL}${canonical}`,
       siteName: "Indrani Creations",
       title: `${title} | Indrani Creations`,
       description,
@@ -131,8 +132,6 @@ export default async function CollectionPage({ params }: PageProps) {
 
   const { category, products } = result;
 
-  const siteUrl = "https://indranicreations.store";
-
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -141,13 +140,13 @@ export default async function CollectionPage({ params }: PageProps) {
         "@type": "ListItem",
         position: 1,
         name: "Home",
-        item: siteUrl,
+        item: SITE_URL,
       },
       {
         "@type": "ListItem",
         position: 2,
         name: category.name,
-        item: `${siteUrl}/collections/${category.slug}`,
+        item: `${SITE_URL}/collections/${category.slug}`,
       },
     ],
   };

@@ -81,8 +81,9 @@ export default async function HomePage() {
       <Header />
 
       {/* HERO */}
-      <section className="relative isolate min-h-[620px] overflow-hidden bg-[#e9e0d4] md:min-h-[740px]">
-        <div className="absolute inset-0 overflow-hidden">
+      <section className="relative isolate overflow-hidden bg-[#faf8f4] md:min-h-[740px] md:bg-[#e9e0d4]">
+        {/* IMAGE CAROUSEL */}
+        <div className="relative h-[380px] overflow-hidden md:absolute md:inset-0 md:h-auto">
           <div className="hero-image-track">
             <div className="hero-image-slide">
               <Image
@@ -136,16 +137,18 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <div className="absolute inset-0 bg-gradient-to-r from-[#f3eee7]/85 via-[#f3eee7]/35 to-transparent" />
+          {/* Desktop image overlay */}
+          <div className="absolute inset-0 hidden bg-gradient-to-r from-[#f3eee7]/85 via-[#f3eee7]/35 to-transparent md:block" />
         </div>
 
-        <div className="relative mx-auto flex min-h-[620px] max-w-[1440px] items-center px-6 py-20 md:min-h-[740px] md:px-12">
-          <div className="max-w-2xl">
-            <p className="mb-6 text-[10px] font-medium uppercase tracking-[0.38em] text-[#766553]">
+        {/* HERO CONTENT */}
+        <div className="relative mx-auto flex w-full max-w-[1440px] flex-col px-0 md:min-h-[740px] md:flex-row md:items-center md:px-12">
+          <div className="w-full bg-[#faf8f4] px-6 py-10 md:max-w-2xl md:bg-transparent md:px-0 md:py-20">
+            <p className="mb-5 text-[10px] font-medium uppercase tracking-[0.3em] text-[#766553] md:mb-6 md:tracking-[0.38em]">
               Indrani Creations · The art of adornment
             </p>
 
-            <h1 className="font-serif text-5xl leading-[1.04] tracking-tight text-[#30271f] sm:text-6xl md:text-8xl">
+            <h1 className="font-serif text-4xl leading-[1.08] tracking-tight text-[#30271f] sm:text-5xl md:text-8xl md:leading-[1.04]">
               A world of
               <br />
               beautiful
@@ -153,32 +156,34 @@ export default async function HomePage() {
               traditions.
             </h1>
 
-            <p className="mt-7 max-w-lg text-sm leading-7 text-[#62574b] md:text-base">
+            <p className="mt-5 max-w-lg text-sm leading-7 text-[#62574b] md:mt-7 md:text-base">
               From timeless sarees to artisanal bangles and treasured jewellery,
               discover pieces that make every moment your own.
             </p>
 
-            <div className="mt-9 flex flex-wrap gap-3">
+            <div className="mt-7 flex flex-col items-start gap-3 sm:flex-row md:mt-9">
               <Link
                 href="/shop"
-                className="bg-[#30271f] px-7 py-4 text-[10px] font-medium uppercase tracking-[0.2em] text-white transition hover:bg-[#59483a]"
+                className="w-full bg-[#30271f] px-7 py-4 text-center text-[10px] font-medium uppercase tracking-[0.2em] text-white transition hover:bg-[#59483a] sm:w-auto"
               >
                 Explore the store
               </Link>
+
               <Link
                 href="#collections"
-                className="border border-[#30271f]/35 bg-white/25 px-7 py-4 text-[10px] font-medium uppercase tracking-[0.2em] text-[#30271f] backdrop-blur transition hover:bg-white/60"
+                className="w-full border border-[#30271f]/35 bg-white/25 px-7 py-4 text-center text-[10px] font-medium uppercase tracking-[0.2em] text-[#30271f] transition hover:bg-white/60 sm:w-auto"
               >
                 Discover collections
               </Link>
             </div>
 
-            <p className="mt-12 text-[9px] uppercase tracking-[0.28em] text-[#766553]">
+            <p className="mt-9 text-[9px] uppercase tracking-[0.2em] text-[#766553] md:mt-12 md:tracking-[0.28em]">
               Sarees · Bangles · Earrings · Necklaces
             </p>
           </div>
         </div>
 
+        {/* Desktop decorative text */}
         <div className="absolute bottom-8 right-8 hidden text-[9px] uppercase tracking-[0.3em] text-[#766553] md:block">
           A thoughtful edit of Indian style
         </div>

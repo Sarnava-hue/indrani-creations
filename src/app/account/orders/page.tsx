@@ -64,13 +64,16 @@ export default function OrdersPage() {
         const response = await fetch(
           "/api/account/orders",
           {
+            credentials: "include",
             cache: "no-store",
           },
         );
 
         if (!response.ok) {
           if (response.status === 401) {
-            router.push("/login");
+            router.replace(
+              "/login?redirect=/account/orders",
+            );
 
             return;
           }
@@ -104,7 +107,7 @@ export default function OrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, );
+  }, [router]);
 
   return (
     <main className="min-h-screen bg-[#f8f5ef] px-5 py-12 text-[#241f1b] sm:px-8">

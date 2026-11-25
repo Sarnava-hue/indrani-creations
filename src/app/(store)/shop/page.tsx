@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { ProductCard } from "@/components/store/product-card";
 import { ShopSort } from "@/components/store/shop-sort";
 import { getActiveCategories } from "@/lib/store/categories";
-import { attachPrimaryImagesAndStock } from "@/lib/store/product-queries";
+import { attachPrimaryImages } from "@/lib/store/product-queries";
 import type { Metadata } from "next";
 
 const siteUrl = "https://indranicreations.store";
@@ -55,7 +55,12 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
   const query = params.q?.trim() ?? "";
   const categorySlug = params.category?.trim() ?? "";
-  const sort = params.sort ?? "newest";
+  const allowedSorts = ["newest", "price-low", "price-high", "name"] as const;
+  const sort = allowedSorts.includes(
+    params.sort as (typeof allowedSorts)[number],
+  )
+    ? (params.sort as (typeof allowedSorts)[number])
+    : "newest";
   const minPrice = params.minPrice?.trim() ?? "";
   const maxPrice = params.maxPrice?.trim() ?? "";
   const inStock = params.inStock === "1";
@@ -71,12 +76,12 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
   const minPaise =
     minPrice !== "" && Number.isFinite(Number(minPrice))
-      ? Math.max(0, Number(minPrice) * 100)
+      ? Math.max(0, Math.round(Number(minPrice) * 100))
       : null;
 
   const maxPaise =
     maxPrice !== "" && Number.isFinite(Number(maxPrice))
-      ? Math.max(0, Number(maxPrice) * 100)
+      ? Math.max(0, Math.round(Number(maxPrice) * 100))
       : null;
 
   const requestedPage = Number.parseInt(params.page ?? "1", 10);
@@ -156,173 +161,108 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   }
 
   // ------------------------------------------------------------
-  // Products
+  // Products (filtered, sorted, and paginated in SQL)
   // ------------------------------------------------------------
 
-  /*
-   * Prisma 8 RC currently installed in this project does not expose
-   * `.skip()` correctly on this inferred collection type.
-   *
-   * We therefore fetch the matching products with a bounded query
-   * and perform the small page slice in application memory.
-   *
-   * We will upgrade this to cursor pagination once the catalog becomes
-   * large enough to require it.
-   */
+  const escapedQuery = query.replace(/[%_\\]/g, (char) => `\\${char}`);
+  const searchPattern = query ? `%${escapedQuery}%` : null;
 
-  let products;
+  const baseCountQuery = db.sql.public.product.select("totalCount", (_f, fns) =>
+    fns.count(),
+  );
+  const baseListQuery = db.sql.public.product.select(
+    "id",
+    "name",
+    "slug",
+    "sku",
+    "categoryId",
+    "shortDescription",
+    "pricePaise",
+    "compareAtPricePaise",
+    "fabric",
+    "color",
+    "occasion",
+    "pattern",
+    "isOneOfOne",
+    "isFeatured",
+  );
 
-  if (query) {
-    const searchPattern = `%${query}%`;
+  type ShopPredicateArgs = Parameters<
+    Parameters<typeof baseListQuery.where>[0]
+  >;
 
-    if (categoryIds !== undefined) {
-      products = await db.orm.public.Product.where((product) =>
-        product.name.ilike(searchPattern),
-      )
-        .where({
-          isActive: true,
-        })
-        .select(
-          "id",
-          "name",
-          "slug",
-          "sku",
-          "categoryId",
-          "shortDescription",
-          "pricePaise",
-          "compareAtPricePaise",
-          "fabric",
-          "color",
-          "occasion",
-          "pattern",
-          "isOneOfOne",
-          "isFeatured",
-        )
-        .orderBy((product) => product.createdAt.desc())
-        .limit(200)
-        .all();
-    } else {
-      products = await db.orm.public.Product.where((product) =>
-        product.name.ilike(searchPattern),
-      )
-        .where({
-          isActive: true,
-        })
-        .select(
-          "id",
-          "name",
-          "slug",
-          "sku",
-          "categoryId",
-          "shortDescription",
-          "pricePaise",
-          "compareAtPricePaise",
-          "fabric",
-          "color",
-          "occasion",
-          "pattern",
-          "isOneOfOne",
-          "isFeatured",
-        )
-        .orderBy((product) => product.createdAt.desc())
-        .limit(200)
-        .all();
-    }
-  } else if (categoryIds !== undefined) {
-    products = await db.orm.public.Product.where({
-      isActive: true,
-    })
-      .select(
-        "id",
-        "name",
-        "slug",
-        "sku",
-        "categoryId",
-        "shortDescription",
-        "pricePaise",
-        "compareAtPricePaise",
-        "fabric",
-        "color",
-        "occasion",
-        "pattern",
-        "isOneOfOne",
-        "isFeatured",
-      )
-      .orderBy((product) => product.createdAt.desc())
-      .limit(200)
-      .all();
-  } else {
-    products = await db.orm.public.Product.where({
-      isActive: true,
-    })
-      .select(
-        "id",
-        "name",
-        "slug",
-        "sku",
-        "categoryId",
-        "shortDescription",
-        "pricePaise",
-        "compareAtPricePaise",
-        "fabric",
-        "color",
-        "occasion",
-        "pattern",
-        "isOneOfOne",
-        "isFeatured",
-      )
-      .orderBy((product) => product.createdAt.desc())
-      .limit(200)
-      .all();
-  }
+  function buildShopWhere(
+    f: ShopPredicateArgs[0],
+    fns: ShopPredicateArgs[1],
+  ) {
+    const conditions = [fns.eq(f.isActive, true)];
 
-  if (categoryIds !== undefined) {
-    products = products.filter((product) =>
-      categoryIds.includes(product.categoryId),
-    );
-  }
-
-  const productsWithImages = await attachPrimaryImagesAndStock(products);
-
-  // ------------------------------------------------------------
-  // Sorting
-  // ------------------------------------------------------------
-
-  const filteredProducts = productsWithImages.filter((product) => {
-    if (minPaise !== null && product.pricePaise < minPaise) {
-      return false;
+    if (categoryIds && categoryIds.length > 0) {
+      conditions.push(fns.in(f.categoryId, categoryIds));
     }
 
-    if (maxPaise !== null && product.pricePaise > maxPaise) {
-      return false;
+    if (minPaise !== null) {
+      conditions.push(fns.gte(f.pricePaise, minPaise));
     }
 
-    if (inStock && product.availableQuantity <= 0) {
-      return false;
+    if (maxPaise !== null) {
+      conditions.push(fns.lte(f.pricePaise, maxPaise));
     }
 
-    return true;
-  });
+    if (searchPattern) {
+      conditions.push(
+        fns.or(
+          fns.raw`${f.name} ILIKE ${searchPattern}`.returns({
+            codecId: "pg/bool@1",
+          }),
+          fns.raw`${f.sku} ILIKE ${searchPattern}`.returns({
+            codecId: "pg/bool@1",
+          }),
+          fns.raw`${f.shortDescription} ILIKE ${searchPattern}`.returns({
+            codecId: "pg/bool@1",
+          }),
+          fns.raw`${f.description} ILIKE ${searchPattern}`.returns({
+            codecId: "pg/bool@1",
+          }),
+          fns.raw`${f.fabric} ILIKE ${searchPattern}`.returns({
+            codecId: "pg/bool@1",
+          }),
+          fns.raw`${f.color} ILIKE ${searchPattern}`.returns({
+            codecId: "pg/bool@1",
+          }),
+          fns.raw`${f.occasion} ILIKE ${searchPattern}`.returns({
+            codecId: "pg/bool@1",
+          }),
+          fns.raw`${f.pattern} ILIKE ${searchPattern}`.returns({
+            codecId: "pg/bool@1",
+          }),
+        ),
+      );
+    }
 
-  const sortedProducts = [...filteredProducts];
+    if (inStock) {
+      conditions.push(
+        fns.exists(
+          db.sql.public.inventory
+            .select("id")
+            .where((inv, invFns) =>
+              invFns.and(
+                invFns.eq(inv.productId, f.id),
+                invFns.gt(inv.quantity, inv.reserved),
+              ),
+            ),
+        ),
+      );
+    }
 
-  if (sort === "price-low") {
-    sortedProducts.sort((a, b) => a.pricePaise - b.pricePaise);
+    return fns.and(...conditions);
   }
 
-  if (sort === "price-high") {
-    sortedProducts.sort((a, b) => b.pricePaise - a.pricePaise);
-  }
+  const countRows = await db
+    .runtime()
+    .query(baseCountQuery.where(buildShopWhere).build());
 
-  if (sort === "name") {
-    sortedProducts.sort((a, b) => a.name.localeCompare(b.name));
-  }
-
-  // ------------------------------------------------------------
-  // Pagination
-  // ------------------------------------------------------------
-
-  const totalProducts = sortedProducts.length;
+  const totalProducts = Number(countRows[0]?.totalCount ?? 0);
 
   const totalPages = Math.max(1, Math.ceil(totalProducts / PAGE_SIZE));
 
@@ -330,10 +270,35 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
   const startIndex = (safePage - 1) * PAGE_SIZE;
 
-  const paginatedProducts = sortedProducts.slice(
-    startIndex,
-    startIndex + PAGE_SIZE,
-  );
+  const filteredListQuery = baseListQuery.where(buildShopWhere);
+
+  const orderedListQuery =
+    sort === "price-low"
+      ? filteredListQuery
+          .orderBy("pricePaise", { direction: "asc" })
+          .orderBy((f) => f.createdAt, { direction: "desc" })
+          .orderBy("id", { direction: "desc" })
+      : sort === "price-high"
+        ? filteredListQuery
+            .orderBy("pricePaise", { direction: "desc" })
+            .orderBy((f) => f.createdAt, { direction: "desc" })
+            .orderBy("id", { direction: "desc" })
+        : sort === "name"
+          ? filteredListQuery
+              .orderBy("name", { direction: "asc" })
+              .orderBy("id", { direction: "desc" })
+          : filteredListQuery
+              .orderBy((f) => f.createdAt, { direction: "desc" })
+              .orderBy("id", { direction: "desc" });
+
+  const pageRows =
+    totalProducts > 0
+      ? await db
+          .runtime()
+          .query(orderedListQuery.limit(PAGE_SIZE).offset(startIndex).build())
+      : [];
+
+  const paginatedProducts = await attachPrimaryImages(pageRows);
 
   // ------------------------------------------------------------
   // Query string helper
@@ -730,6 +695,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                   <Link
                     key={page}
                     href={buildUrl(page)}
+                    aria-current={page === safePage ? "page" : undefined}
                     className={`flex h-10 w-10 items-center justify-center border text-xs ${
                       page === safePage
                         ? "border-neutral-900 bg-neutral-900 text-white"

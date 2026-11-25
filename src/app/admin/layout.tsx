@@ -2,6 +2,10 @@ import Link from "next/link";
 
 import { requireAdmin } from "@/lib/auth/admin";
 import LogoutButton from "@/components/account/logout-button";
+import {
+  AdminDesktopNav,
+  AdminMobileNav,
+} from "@/components/admin/admin-nav";
 
 export default async function AdminLayout({
   children,
@@ -28,44 +32,7 @@ export default async function AdminLayout({
               </p>
             </div>
 
-            <nav className="flex-1 px-4 py-6">
-              <div className="space-y-1">
-                <Link
-                  href="/admin"
-                  className="block px-3 py-3 text-sm transition hover:bg-neutral-100"
-                >
-                  Dashboard
-                </Link>
-
-                <Link
-                  href="/admin/products"
-                  className="block px-3 py-3 text-sm transition hover:bg-neutral-100"
-                >
-                  Products
-                </Link>
-
-                <Link
-                  href="/admin/categories"
-                  className="block px-3 py-3 text-sm transition hover:bg-neutral-100"
-                >
-                  Categories
-                </Link>
-
-                <Link
-                  href="/admin/inventory"
-                  className="block px-3 py-3 text-sm transition hover:bg-neutral-100"
-                >
-                  Inventory
-                </Link>
-
-                <Link
-                  href="/admin/orders"
-                  className="block px-3 py-3 text-sm transition hover:bg-neutral-100"
-                >
-                  Orders
-                </Link>
-              </div>
-            </nav>
+            <AdminDesktopNav />
 
             <div className="border-t border-black/10 p-4">
               <Link
@@ -81,21 +48,25 @@ export default async function AdminLayout({
         </aside>
 
         <main className="min-w-0 flex-1">
-          <div className="border-b border-black/10 bg-white px-6 py-5 lg:px-10">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
-                  Indrani Creations
-                </p>
+          <div className="relative border-b border-black/10 bg-white px-6 py-5 lg:px-10">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <AdminMobileNav />
 
-                <h1 className="mt-1 text-xl font-medium">
-                  Administration
-                </h1>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
+                    Indrani Creations
+                  </p>
+
+                  <h1 className="mt-1 text-xl font-medium">
+                    Administration
+                  </h1>
+                </div>
               </div>
 
               <Link
                 href="/"
-                className="text-sm text-neutral-600 transition hover:text-neutral-900"
+                className="shrink-0 text-sm text-neutral-600 transition hover:text-neutral-900"
               >
                 Storefront →
               </Link>

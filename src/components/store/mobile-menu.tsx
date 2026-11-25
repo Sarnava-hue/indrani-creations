@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Category = {
   id: number;
@@ -20,6 +20,24 @@ export function MobileMenu({
   const [collectionsOpen, setCollectionsOpen] =
     useState(false);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
   function closeMenu() {
     setOpen(false);
   }
@@ -36,7 +54,7 @@ export function MobileMenu({
         }
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-stone-100 md:hidden"
+        className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-stone-100 lg:hidden"
       >
         <span className="sr-only">
           {open ? "Close menu" : "Open menu"}
@@ -69,7 +87,7 @@ export function MobileMenu({
 
       {/* Mobile navigation */}
       {open ? (
-        <div className="absolute left-0 right-0 top-20 border-b border-stone-200 bg-[#faf9f6] shadow-lg md:hidden">
+        <div className="absolute left-0 right-0 top-20 border-b border-stone-200 bg-[#faf9f6] shadow-lg lg:hidden">
           <nav className="px-5 py-6">
             <div className="space-y-1">
               <Link

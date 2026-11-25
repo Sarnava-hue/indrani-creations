@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { releaseInventoryForOrder } from "@/lib/inventory/lifecycle";
 
 type CancelResult =
   | {
@@ -98,26 +99,7 @@ export async function cancelOrderAndReleaseInventory(
     /*
      * Release every reservation belonging to this order.
      */
-    for (const item of orderItems) {
-      const releasePlan = db.raw
-        .sql`
-          UPDATE "inventory"
-          SET
-            "reserved" = "reserved" - ${item.quantity}
-          WHERE "productId" = ${item.productId}
-            AND "reserved" >= ${item.quantity}
-        `
-        .affectedCount()
-        .build();
-
-      const result = await tx.execute(releasePlan);
-
-      if (result.affectedRows !== 1) {
-        throw new Error(
-          `Unable to release inventory for product ${item.productId}.`,
-        );
-      }
-    }
+    await releaseInventoryForOrder(tx, orderItems);
 
     return {
       cancelled: true,

@@ -1,5 +1,6 @@
 
 import { db } from "@/prisma/db";
+import { releaseInventoryForOrder } from "@/lib/inventory/lifecycle";
 
 const EXPIRATION_MINUTES = 15;
 const MAX_ORDERS_PER_RUN = 100;
@@ -96,24 +97,7 @@ export async function expirePendingOrders(): Promise<ExpirationResult> {
           .select("productId", "quantity")
           .all();
 
-        for (const item of items) {
-          const releasePlan = db.raw.sql`
-            UPDATE public."inventory"
-            SET "reserved" = "reserved" - ${item.quantity}
-            WHERE "productId" = ${item.productId}
-              AND "reserved" >= ${item.quantity}
-          `
-            .affectedCount()
-            .build();
-
-          const releaseResult = await tx.execute(releasePlan);
-
-          if (releaseResult.affectedRows !== 1) {
-            throw new Error(
-              `Unable to release inventory for product ${item.productId}.`
-            );
-          }
-        }
+        await releaseInventoryForOrder(tx, items);
 
         return true;
       });

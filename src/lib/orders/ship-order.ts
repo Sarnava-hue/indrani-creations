@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { commitInventoryForOrder } from "@/lib/inventory/lifecycle";
 
 type ShipResult =
   | {
@@ -111,28 +112,7 @@ export async function shipOrderAndCommitInventory(
      * The WHERE clause ensures we never consume
      * inventory that wasn't reserved for the order.
      */
-    for (const item of orderItems) {
-      const commitPlan = db.raw
-        .sql`
-          UPDATE "inventory"
-          SET
-            "quantity" = "quantity" - ${item.quantity},
-            "reserved" = "reserved" - ${item.quantity}
-          WHERE "productId" = ${item.productId}
-            AND "quantity" >= ${item.quantity}
-            AND "reserved" >= ${item.quantity}
-        `
-        .affectedCount()
-        .build();
-
-      const result = await tx.execute(commitPlan);
-
-      if (result.affectedRows !== 1) {
-        throw new Error(
-          `Unable to commit inventory for product ${item.productId}.`,
-        );
-      }
-    }
+    await commitInventoryForOrder(tx, orderItems);
 
     const nowIso = new Date().toISOString();
     const existingShipment = await tx.orm.public.Shipment.where({

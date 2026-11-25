@@ -8,6 +8,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"src/**/*.test.ts\"",
     "postinstall": "prisma skills sync || exit 0",
     "contract:emit": "prisma contract emit",
     "db:seed": "tsx scripts/seed.ts",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { reserveInventoryForOrder } from "@/lib/inventory/lifecycle";
 import {
   createGuestAccessToken,
   getGuestOrderCookieName,
@@ -449,23 +450,6 @@ export async function POST(request: Request) {
 
     /*
      * -------------------------------------------------
-     * Build inventory reservation plans
-     * -------------------------------------------------
-     */
-
-    const inventoryReservationPlans = orderItems.map((item) =>
-      db.raw.sql`
-      UPDATE "inventory"
-      SET "reserved" = "reserved" + ${item.quantity}
-      WHERE "productId" = ${item.productId}
-        AND "quantity" - "reserved" >= ${item.quantity}
-    `
-        .affectedCount()
-        .build(),
-    );
-
-    /*
-     * -------------------------------------------------
      * Create local order + payment atomically
      * -------------------------------------------------
      */
@@ -477,15 +461,7 @@ export async function POST(request: Request) {
        * -------------------------------------------------
        */
 
-      for (let index = 0; index < orderItems.length; index += 1) {
-        const result = await tx.execute(inventoryReservationPlans[index]);
-
-        if (result.affectedRows !== 1) {
-          throw new Error(
-            `Insufficient inventory for product ${orderItems[index].productId}.`,
-          );
-        }
-      }
+      await reserveInventoryForOrder(tx, orderItems);
 
       /*
        * -------------------------------------------------

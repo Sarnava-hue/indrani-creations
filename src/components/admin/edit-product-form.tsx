@@ -381,10 +381,15 @@ export function EditProductForm({
 
         <div className="mt-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium">
+            <label
+              htmlFor="shortDescription"
+              className="block text-sm font-medium"
+            >
               Short description (SEO)
             </label>
             <textarea
+              id="shortDescription"
+              name="shortDescription"
               rows={3}
               maxLength={300}
               value={form.shortDescription}
@@ -394,42 +399,20 @@ export function EditProductForm({
               placeholder="Write a concise, search-friendly summary of this product (max 300 characters)."
               className="admin-input resize-y"
             />
-            <p className="mt-1 text-xs text-gray-500">
-              {form.shortDescription.length}/300 characters
+            <p className="mt-1 text-xs text-neutral-500">
+              {form.shortDescription.length}/300 characters — aim for 120–160
+              characters without keyword stuffing.
             </p>
           </div>
-          <div>
-            <label className="block text-sm font-medium">Description</label>
 
-            <div>
-              <label
-                htmlFor="shortDescription"
-                className="mb-2 block text-sm font-medium"
-              >
-                Short description (SEO)
-              </label>
-              <textarea
-                id="shortDescription"
-                name="shortDescription"
-                value={form.shortDescription}
-                onChange={(event) =>
-                  setForm((previous) => ({
-                    ...previous,
-                    shortDescription: event.target.value,
-                  }))
-                }
-                rows={3}
-                maxLength={300}
-                placeholder="A concise, accurate summary of this product."
-                className="w-full rounded-md border border-neutral-300 px-3 py-2"
-              />
-              <p className="mt-1 text-xs text-neutral-500">
-                Aim for 120–160 characters. Describe the actual product without
-                keyword stuffing.
-              </p>
-            </div>
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium">
+              Description
+            </label>
 
             <textarea
+              id="description"
+              name="description"
               rows={6}
               value={form.description}
               onChange={(event) =>

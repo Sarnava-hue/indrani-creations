@@ -74,13 +74,11 @@ const testimonials = [
 ];
 
 function ImagePlaceholder({
-  label,
   className = "",
   src,
   alt,
   priority = false,
 }: {
-  label: string;
   className?: string;
   src: string;
   alt: string;
@@ -178,7 +176,6 @@ export default function AboutPage() {
         {services.map((service) => (
           <article key={service.title} className="text-center">
             <ImagePlaceholder
-              label="800 x 800"
               src={service.image}
               alt={service.title}
               className="aspect-[1.5/1] w-full"
@@ -198,7 +195,6 @@ export default function AboutPage() {
       <section className="bg-[#e8e5df]">
         <div className="mx-auto grid max-w-[1440px] gap-10 px-6 py-16 md:grid-cols-2 md:items-center md:gap-14 md:px-12 md:py-20">
           <ImagePlaceholder
-            label="640 x 821"
             src="/images/about/brand-story.jpeg"
             alt="Indrani Creations traditional saree collection"
             priority
@@ -295,7 +291,6 @@ export default function AboutPage() {
         </div>
 
         <ImagePlaceholder
-          label="800 x 800"
           src="/images/about/saree.jpeg"
           alt="Indrani Creations sarees and accessories"
           className="aspect-square w-full"
@@ -330,11 +325,6 @@ export default function AboutPage() {
                     “{testimonial.quote}”
                   </h3>
 
-                  <p className="mx-auto mt-5 max-w-sm text-sm leading-7 text-[#77716b]">
-                    Customer feedback will appear here. Replace this sample text
-                    with a genuine review shared by a customer.
-                  </p>
-
                   <div
                     className={`mx-auto mt-6 flex h-20 w-20 items-center justify-center rounded-full ${testimonial.color}`}
                   >
@@ -362,33 +352,32 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* NEWSLETTER */}
+      {/* STAY CONNECTED */}
       <section className="bg-[#e8e5df] px-6 py-16 text-center md:py-20">
         <h2 className="font-serif text-3xl uppercase tracking-[0.1em] md:text-4xl">
-          Subscribe for the latest news
+          Discover the latest edit
         </h2>
         <p className="mx-auto mt-5 max-w-2xl text-sm leading-7 text-[#625b53]">
-          Be the first to know about new collections, thoughtful edits, and
-          stories from Indrani Creations.
+          Explore our newest sarees, artisanal bangles, and handcrafted
+          jewellery, or reach out to our team with any styling or order
+          questions.
         </p>
 
-        <form
-          className="mx-auto mt-8 flex max-w-xl rounded-full border border-[#d7d0c7] bg-white p-2"
-          action="#"
-        >
-          <input
-            type="email"
-            placeholder="Enter your email"
-            aria-label="Email address"
-            className="min-w-0 flex-1 rounded-full bg-transparent px-4 text-sm outline-none"
-          />
-          <button
-            type="submit"
-            className="rounded-full bg-[#c97825] px-6 py-3 text-sm text-white transition hover:bg-[#a9611c]"
+        <div className="mt-8 flex flex-wrap justify-center gap-4">
+          <Link
+            href="/shop"
+            className="rounded-full bg-[#29251f] px-7 py-3.5 text-xs uppercase tracking-[0.18em] text-white transition hover:bg-[#51463b]"
           >
-            Subscribe
-          </button>
-        </form>
+            Explore the store
+          </Link>
+
+          <Link
+            href="/contact"
+            className="rounded-full border border-[#29251f]/25 bg-white px-7 py-3.5 text-xs uppercase tracking-[0.18em] text-[#29251f] transition hover:border-[#29251f]"
+          >
+            Contact us
+          </Link>
+        </div>
       </section>
     </main>
   );

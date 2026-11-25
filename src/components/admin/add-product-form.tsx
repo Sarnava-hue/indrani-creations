@@ -29,6 +29,7 @@ type FormState = {
   sareeLength: string;
   blouseIncluded: boolean;
   blouseDetails: string;
+  shortDescription: string;
   description: string;
   careInstructions: string;
   isOneOfOne: boolean;
@@ -49,6 +50,7 @@ const initialForm: FormState = {
   sareeLength: "",
   blouseIncluded: false,
   blouseDetails: "",
+  shortDescription: "",
   description: "",
   careInstructions: "",
   isOneOfOne: true,
@@ -414,6 +416,33 @@ export function AddProductForm({
         </h3>
 
         <div className="mt-6 space-y-6">
+          <div>
+            <label
+              htmlFor="add-shortDescription"
+              className="block text-sm font-medium"
+            >
+              Short description (SEO)
+            </label>
+
+            <textarea
+              id="add-shortDescription"
+              rows={3}
+              maxLength={300}
+              value={form.shortDescription}
+              onChange={(event) =>
+                updateField(
+                  "shortDescription",
+                  event.target.value,
+                )
+              }
+              placeholder="Write a concise, search-friendly summary of this product (max 300 characters)."
+              className="admin-input resize-y"
+            />
+            <p className="mt-1 text-xs text-neutral-500">
+              {form.shortDescription.length}/300 characters
+            </p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium">
               Description

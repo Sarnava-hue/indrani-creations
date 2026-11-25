@@ -374,6 +374,38 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   // Query string helper
   // ------------------------------------------------------------
 
+  function buildCategoryUrl(slug: string) {
+    const search = new URLSearchParams();
+
+    if (query) {
+      search.set("q", query);
+    }
+
+    if (slug) {
+      search.set("category", slug);
+    }
+
+    if (sort !== "newest") {
+      search.set("sort", sort);
+    }
+
+    if (minPrice) {
+      search.set("minPrice", minPrice);
+    }
+
+    if (maxPrice) {
+      search.set("maxPrice", maxPrice);
+    }
+
+    if (inStock) {
+      search.set("inStock", "1");
+    }
+
+    const queryString = search.toString();
+
+    return queryString ? `/shop?${queryString}` : "/shop";
+  }
+
   function buildUrl(page: number) {
     const search = new URLSearchParams();
 
@@ -440,66 +472,28 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       <section className="border-b border-black/10 bg-[#f7f4ef]">
         <div className="mx-auto max-w-7xl px-6 py-6 lg:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            {/* Main product categories */}
-            <div className="mb-6 border-b border-black/10 pb-6">
-              <p className="mb-4 text-[10px] uppercase tracking-[0.25em] text-neutral-500">
-                Explore by category
-              </p>
-
-              <div className="flex flex-wrap gap-3">
-                {[
-                  { name: "All pieces", href: "/shop", active: !categorySlug },
-                  { name: "Sarees", href: "/shop", active: false },
-                  {
-                    name: "Bangles",
-                    href: "/shop?category=bangles",
-                    active: categorySlug === "bangles",
-                  },
-                  {
-                    name: "Earrings",
-                    href: "/shop?category=earrings",
-                    active: categorySlug === "earrings",
-                  },
-                  {
-                    name: "Necklaces",
-                    href: "/shop?category=necklaces",
-                    active: categorySlug === "necklaces",
-                  },
-                ].map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    aria-current={item.active ? "page" : undefined}
-                    className={`rounded-full border px-5 py-2.5 text-xs uppercase tracking-[0.15em] transition ${
-                      item.active
-                        ? "border-neutral-900 bg-neutral-900 text-white"
-                        : "border-black/15 bg-white/50 text-neutral-700 hover:border-neutral-900 hover:bg-white"
-                    }`}
-                  >
-                    {item.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-
             {/* Categories */}
 
             <div className="flex flex-wrap gap-3">
               <Link
-                href="/shop"
+                href={buildCategoryUrl("")}
+                aria-current={!categorySlug ? "page" : undefined}
                 className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.15em] transition ${
                   !categorySlug
                     ? "border-neutral-900 bg-neutral-900 text-white"
                     : "border-black/15 text-neutral-700 hover:border-neutral-900"
                 }`}
               >
-                All
+                All pieces
               </Link>
 
               {categories.map((category) => (
                 <Link
                   key={category.id}
-                  href={`/shop?category=${category.slug}`}
+                  href={buildCategoryUrl(category.slug)}
+                  aria-current={
+                    categorySlug === category.slug ? "page" : undefined
+                  }
                   className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.15em] transition ${
                     categorySlug === category.slug
                       ? "border-neutral-900 bg-neutral-900 text-white"
@@ -624,7 +618,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
               Apply filters
             </button>
 
-            {(minPrice || maxPrice) && (
+            {hasActiveFilters && (
               <Link
                 href="/shop"
                 className="px-2 py-3 text-xs uppercase tracking-[0.15em] text-neutral-600 underline underline-offset-4 transition hover:text-neutral-900"

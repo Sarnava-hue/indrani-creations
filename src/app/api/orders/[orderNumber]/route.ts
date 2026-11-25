@@ -1,35 +1,17 @@
 
-import { createHash, timingSafeEqual } from "node:crypto";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import {
+  getGuestOrderCookieName,
+  verifyGuestAccessToken,
+} from "@/lib/orders/guest-token";
 
 type RouteContext = {
   params: Promise<{ orderNumber: string }>;
 };
-
-function verifyGuestToken(
-  suppliedToken: string | null,
-  storedHash: string | null,
-): boolean {
-  if (
-    !suppliedToken ||
-    !/^[a-f0-9]{64}$/i.test(suppliedToken) ||
-    !storedHash ||
-    !/^[a-f0-9]{64}$/i.test(storedHash)
-  ) {
-    return false;
-  }
-
-  const suppliedHash = createHash("sha256")
-    .update(suppliedToken)
-    .digest();
-
-  const expectedHash = Buffer.from(storedHash, "hex");
-
-  return timingSafeEqual(suppliedHash, expectedHash);
-}
 
 export async function GET(request: Request, context: RouteContext) {
   try {
@@ -92,9 +74,13 @@ export async function GET(request: Request, context: RouteContext) {
         );
       }
     } else {
-      const token = request.headers.get("x-guest-order-token");
+      const cookieStore = await cookies();
+      const token =
+        request.headers.get("x-guest-order-token") ??
+        cookieStore.get(getGuestOrderCookieName(order.orderNumber))?.value ??
+        null;
 
-      if (!verifyGuestToken(token, order.guestAccessTokenHash)) {
+      if (!verifyGuestAccessToken(token, order.guestAccessTokenHash)) {
         return NextResponse.json(
           { error: "Order verification failed." },
           { status: 403 },

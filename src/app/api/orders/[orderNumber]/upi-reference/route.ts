@@ -1,9 +1,13 @@
 
-import { createHash, timingSafeEqual } from "node:crypto";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import {
+  getGuestOrderCookieName,
+  verifyGuestAccessToken,
+} from "@/lib/orders/guest-token";
 
 type RouteContext = {
   params: Promise<{ orderNumber: string }>;
@@ -15,31 +19,6 @@ function isValidReference(value: unknown): value is string {
     value.trim().length >= 6 &&
     value.trim().length <= 100 &&
     /^[a-zA-Z0-9-]+$/.test(value.trim())
-  );
-}
-
-function matchesGuestToken(
-  suppliedToken: unknown,
-  storedHash: string | null,
-): boolean {
-  if (
-    typeof suppliedToken !== "string" ||
-    !/^[a-f0-9]{64}$/i.test(suppliedToken) ||
-    !storedHash ||
-    !/^[a-f0-9]{64}$/i.test(storedHash)
-  ) {
-    return false;
-  }
-
-  const suppliedHash = createHash("sha256")
-    .update(suppliedToken)
-    .digest();
-
-  const expectedHash = Buffer.from(storedHash, "hex");
-
-  return (
-    suppliedHash.length === expectedHash.length &&
-    timingSafeEqual(suppliedHash, expectedHash)
   );
 }
 
@@ -78,7 +57,14 @@ export async function POST(request: Request, context: RouteContext) {
     const order = await db.orm.public.Order.where({
       orderNumber: orderNumber.trim(),
     })
-      .select("id", "userId", "guestAccessTokenHash", "paymentStatus")
+      .select(
+        "id",
+        "orderNumber",
+        "userId",
+        "guestAccessTokenHash",
+        "status",
+        "paymentStatus",
+      )
       .first();
 
     if (!order) {
@@ -96,10 +82,13 @@ export async function POST(request: Request, context: RouteContext) {
         );
       }
     } else {
+      const cookieStore = await cookies();
       const suppliedToken =
-        "guestAccessToken" in body ? body.guestAccessToken : null;
+        ("guestAccessToken" in body ? body.guestAccessToken : null) ??
+        cookieStore.get(getGuestOrderCookieName(order.orderNumber))?.value ??
+        null;
 
-      if (!matchesGuestToken(suppliedToken, order.guestAccessTokenHash)) {
+      if (!verifyGuestAccessToken(suppliedToken, order.guestAccessTokenHash)) {
         return NextResponse.json(
           { error: "Order verification failed." },
           { status: 403 },
@@ -107,7 +96,7 @@ export async function POST(request: Request, context: RouteContext) {
       }
     }
 
-    if (order.paymentStatus !== "PENDING") {
+    if (order.status === "CANCELLED" || order.paymentStatus !== "PENDING") {
       return NextResponse.json(
         { error: "This order is not awaiting payment." },
         { status: 409 },

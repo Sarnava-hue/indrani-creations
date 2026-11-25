@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import SavedAddresses, {
   type SavedAddress,
@@ -21,11 +22,21 @@ type CheckoutForm = {
   postalCode: string;
 };
 
+type OrderedItemSummary = {
+  productId: number;
+  name: string;
+  pricePaise: number;
+  quantity: number;
+  imageUrl?: string;
+};
+
 type PaymentData = {
   orderNumber: string;
   amountPaise: number;
   currency: string;
   guestAccessToken: string | null;
+  items: OrderedItemSummary[];
+  subtotalPaise: number;
 };
 
 const initialForm: CheckoutForm = {
@@ -87,7 +98,8 @@ function isOrderResponse(data: unknown): data is {
 }
 
 export default function CheckoutPage() {
-  const { items, subtotalPaise } = useCart();
+  const router = useRouter();
+  const { items, subtotalPaise, clearCart } = useCart();
 
   const [form, setForm] = useState<CheckoutForm>(initialForm);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
@@ -193,6 +205,14 @@ export default function CheckoutPage() {
         );
       }
 
+      const orderedItems: OrderedItemSummary[] = items.map((item) => ({
+        productId: item.productId,
+        name: item.name,
+        pricePaise: item.pricePaise,
+        quantity: item.quantity,
+        imageUrl: item.imageUrl,
+      }));
+
       setPaymentData({
         orderNumber: data.order.orderNumber,
         amountPaise: data.payment.amountPaise,
@@ -201,7 +221,11 @@ export default function CheckoutPage() {
           typeof data.order.guestAccessToken === "string"
             ? data.order.guestAccessToken
             : null,
+        items: orderedItems,
+        subtotalPaise,
       });
+
+      clearCart();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -248,7 +272,11 @@ export default function CheckoutPage() {
       }
 
       setReferenceMessage(
-        "Reference submitted. Your payment remains pending until the store verifies receipt of the money.",
+        "Reference submitted. Redirecting to your order summary...",
+      );
+
+      router.push(
+        `/order-success/${encodeURIComponent(paymentData.orderNumber)}`,
       );
     } catch (err) {
       setError(
@@ -604,10 +632,19 @@ export default function CheckoutPage() {
             )}
 
             {paymentData && (
-              <p className="text-sm leading-6 text-neutral-600">
-                Keep your order number for reference. Your order is not
-                confirmed as paid until the store verifies the transaction.
-              </p>
+              <div className="space-y-3">
+                <p className="text-sm leading-6 text-neutral-600">
+                  Keep your order number for reference. Your order is not
+                  confirmed as paid until the store verifies the transaction.
+                </p>
+
+                <Link
+                  href={`/order-success/${encodeURIComponent(paymentData.orderNumber)}`}
+                  className="inline-block border-b border-neutral-900 pb-1 text-xs uppercase tracking-[0.2em] text-neutral-900 transition hover:text-neutral-600"
+                >
+                  View order status →
+                </Link>
+              </div>
             )}
           </div>
 
@@ -618,7 +655,7 @@ export default function CheckoutPage() {
               </p>
 
               <div className="mt-8 divide-y divide-black/10">
-                {items.map((item) => (
+                {(paymentData ? paymentData.items : items).map((item) => (
                   <div
                     key={item.productId}
                     className="flex gap-4 py-5 first:pt-0 last:pb-0"
@@ -651,7 +688,11 @@ export default function CheckoutPage() {
               <div className="mt-8 space-y-4 border-t border-black/10 pt-6">
                 <div className="flex justify-between text-sm">
                   <span className="text-neutral-500">Subtotal</span>
-                  <span>{formatINR(subtotalPaise)}</span>
+                  <span>
+                    {formatINR(
+                      paymentData ? paymentData.subtotalPaise : subtotalPaise,
+                    )}
+                  </span>
                 </div>
 
                 <div className="flex justify-between text-sm">

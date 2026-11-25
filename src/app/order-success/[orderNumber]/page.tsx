@@ -1,6 +1,15 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 
+import { getSession } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import {
+  getGuestOrderCookieName,
+  verifyGuestAccessToken,
+} from "@/lib/orders/guest-token";
 import { formatINR } from "@/lib/utils/currency";
+
+export const dynamic = "force-dynamic";
 
 type OrderItem = {
   id: number;
@@ -11,31 +20,36 @@ type OrderItem = {
   totalPaise: number;
 };
 
-type OrderResponse = {
-  order: {
-    orderNumber: string;
-    status: string;
-    paymentStatus: string;
-    shippingStatus: string;
-    currency: string;
-    subtotalPaise: number;
-    discountPaise: number;
-    shippingPaise: number;
-    taxPaise: number;
-    totalPaise: number;
-    createdAt: string;
-    shipping: {
-      name: string;
-      phone: string;
-      line1: string;
-      line2: string | null;
-      city: string;
-      state: string;
-      postalCode: string;
-      countryCode: string;
-    };
-    items: OrderItem[];
+type OrderData = {
+  orderNumber: string;
+  userId: number | null;
+  status: string;
+  paymentStatus: string;
+  shippingStatus: string;
+  currency: string;
+  subtotalPaise: number;
+  discountPaise: number;
+  shippingPaise: number;
+  taxPaise: number;
+  totalPaise: number;
+  createdAt: string;
+  shipping: {
+    name: string;
+    phone: string;
+    line1: string;
+    line2: string | null;
+    city: string;
+    state: string;
+    postalCode: string;
+    countryCode: string;
   };
+  payment: {
+    provider: string;
+    status: string;
+    upiTransactionReference: string | null;
+    upiReferenceSubmittedAt: string | null;
+  } | null;
+  items: OrderItem[];
 };
 
 type OrderSuccessPageProps = {
@@ -44,21 +58,115 @@ type OrderSuccessPageProps = {
   }>;
 };
 
-async function getOrder(orderNumber: string): Promise<OrderResponse | null> {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+async function getOrder(orderNumber: string): Promise<OrderData | null> {
+  const trimmedOrderNumber = orderNumber.trim();
 
-  const response = await fetch(
-    `${baseUrl}/api/orders/${encodeURIComponent(orderNumber)}`,
-    {
-      cache: "no-store",
-    },
-  );
-
-  if (!response.ok) {
+  if (!trimmedOrderNumber || trimmedOrderNumber.length > 100) {
     return null;
   }
 
-  return response.json();
+  const order = await db.orm.public.Order.where({
+    orderNumber: trimmedOrderNumber,
+  })
+    .select(
+      "id",
+      "userId",
+      "guestAccessTokenHash",
+      "orderNumber",
+      "status",
+      "paymentStatus",
+      "shippingStatus",
+      "currency",
+      "subtotalPaise",
+      "discountPaise",
+      "shippingPaise",
+      "taxPaise",
+      "totalPaise",
+      "shippingRecipientName",
+      "shippingPhone",
+      "shippingLine1",
+      "shippingLine2",
+      "shippingCity",
+      "shippingState",
+      "shippingPostalCode",
+      "shippingCountryCode",
+      "createdAt",
+    )
+    .first();
+
+  if (!order) {
+    return null;
+  }
+
+  if (order.userId !== null) {
+    const session = await getSession();
+
+    if (!session || session.userId !== order.userId) {
+      return null;
+    }
+  } else {
+    const cookieStore = await cookies();
+    const guestToken =
+      cookieStore.get(getGuestOrderCookieName(order.orderNumber))?.value ??
+      null;
+
+    if (!verifyGuestAccessToken(guestToken, order.guestAccessTokenHash)) {
+      return null;
+    }
+  }
+
+  const [items, payment] = await Promise.all([
+    db.orm.public.OrderItem.where({
+      orderId: order.id,
+    })
+      .select(
+        "id",
+        "productName",
+        "sku",
+        "unitPricePaise",
+        "quantity",
+        "totalPaise",
+      )
+      .all(),
+
+    db.orm.public.Payment.where({
+      orderId: order.id,
+    })
+      .select(
+        "provider",
+        "status",
+        "upiTransactionReference",
+        "upiReferenceSubmittedAt",
+      )
+      .first(),
+  ]);
+
+  return {
+    orderNumber: order.orderNumber,
+    userId: order.userId,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    shippingStatus: order.shippingStatus,
+    currency: order.currency,
+    subtotalPaise: order.subtotalPaise,
+    discountPaise: order.discountPaise,
+    shippingPaise: order.shippingPaise,
+    taxPaise: order.taxPaise,
+    totalPaise: order.totalPaise,
+    createdAt: order.createdAt,
+    shipping: {
+      name: order.shippingRecipientName,
+      phone: order.shippingPhone,
+      line1: order.shippingLine1,
+      line2: order.shippingLine2,
+      city: order.shippingCity,
+      state: order.shippingState,
+      postalCode: order.shippingPostalCode,
+      countryCode: order.shippingCountryCode,
+    },
+    payment,
+    items,
+  };
 }
 
 function formatStatus(status: string): string {
@@ -73,9 +181,9 @@ export default async function OrderSuccessPage({
 }: OrderSuccessPageProps) {
   const { orderNumber } = await params;
 
-  const data = await getOrder(orderNumber);
+  const order = await getOrder(orderNumber);
 
-  if (!data) {
+  if (!order) {
     return (
       <main className="min-h-screen bg-[#f8f5ef] px-6 py-16 text-[#241f1b]">
         <div className="mx-auto max-w-2xl">
@@ -89,7 +197,8 @@ export default async function OrderSuccessPage({
             </h1>
 
             <p className="mx-auto mt-4 max-w-md text-sm leading-7 text-[#241f1b]/60">
-              Please check your order number or return to the shop.
+              Please check your order number, sign in if you placed this order
+              with an account, or return to the shop.
             </p>
 
             <Link
@@ -104,7 +213,8 @@ export default async function OrderSuccessPage({
     );
   }
 
-  const { order } = data;
+  const isCancelled = order.status === "CANCELLED";
+  const isPaid = order.paymentStatus === "PAID";
 
   return (
     <main className="min-h-screen bg-[#f8f5ef] px-6 py-12 text-[#241f1b] md:py-16">
@@ -114,25 +224,33 @@ export default async function OrderSuccessPage({
           <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
             <div>
               <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-[#241f1b] text-2xl text-white">
-                ✓
+                {isCancelled ? "×" : "✓"}
               </div>
 
               <p className="text-xs uppercase tracking-[0.25em] text-[#8b6f47]">
-                {order.paymentStatus === "PAID"
-                  ? "Order confirmed"
-                  : "Payment pending"}
+                {isCancelled
+                  ? "Order cancelled"
+                  : isPaid
+                    ? "Order confirmed"
+                    : "Payment pending"}
               </p>
 
               <h1 className="mt-2 font-serif text-4xl leading-tight md:text-5xl">
-                {order.paymentStatus === "PAID"
-                  ? "Thank you for your order."
-                  : "Your order has been received."}
+                {isCancelled
+                  ? "This order was cancelled."
+                  : isPaid
+                    ? "Thank you for your order."
+                    : "Your order has been received."}
               </h1>
 
               <p className="mt-4 max-w-xl text-sm leading-7 text-[#241f1b]/60">
-                {order.paymentStatus === "PAID"
-                  ? "Your payment has been verified and your order is confirmed. We'll keep you updated as it moves through preparation and shipping."
-                  : "Your order details have been received, but payment is still pending. Your order will be confirmed after the store verifies receipt of your payment."}
+                {isCancelled
+                  ? "This order is no longer active. If you have already sent a payment, please contact the store with your order number."
+                  : isPaid
+                    ? "Your payment has been verified and your order is confirmed. We'll keep you updated as it moves through preparation and shipping."
+                    : order.payment?.upiTransactionReference
+                      ? "Your UPI transaction reference has been recorded. Your order will be confirmed once the store verifies receipt of your payment."
+                      : "Your order details have been received, but payment is still pending. Your order will be confirmed after the store verifies receipt of your payment."}
               </p>
             </div>
 
@@ -168,6 +286,12 @@ export default async function OrderSuccessPage({
             <p className="mt-3 text-sm font-medium">
               {formatStatus(order.paymentStatus)}
             </p>
+
+            {order.payment?.upiTransactionReference && (
+              <p className="mt-2 break-all text-xs text-[#241f1b]/60">
+                UPI Ref: {order.payment.upiTransactionReference}
+              </p>
+            )}
           </div>
 
           <div className="rounded-2xl border border-[#241f1b]/10 bg-white p-6">
@@ -306,6 +430,15 @@ export default async function OrderSuccessPage({
           >
             Continue shopping
           </Link>
+
+          {order.userId !== null && (
+            <Link
+              href={`/account/orders/${encodeURIComponent(order.orderNumber)}`}
+              className="inline-flex items-center justify-center rounded-full border border-[#241f1b]/15 bg-white px-7 py-3 text-sm transition hover:bg-white/70"
+            >
+              View in my orders
+            </Link>
+          )}
 
           <Link
             href="/"

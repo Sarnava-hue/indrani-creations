@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { createHash, randomBytes } from "node:crypto";
+import {
+  createGuestAccessToken,
+  getGuestOrderCookieName,
+} from "@/lib/orders/guest-token";
 
 type OrderItemInput = {
   productId: number;
@@ -61,8 +65,7 @@ function isValidIndianPostalCode(value: string): boolean {
 
 function generateOrderNumber(): string {
   const timestamp = Date.now().toString(36).toUpperCase();
-
-  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const random = randomBytes(4).toString("hex").toUpperCase();
 
   return `IC-${timestamp}-${random}`;
 }
@@ -407,12 +410,11 @@ export async function POST(request: Request) {
 
     const orderNumber = generateOrderNumber();
 
-    const guestAccessToken =
-      session?.userId == null ? randomBytes(32).toString("hex") : null;
+    const guestCredentials =
+      session?.userId == null ? createGuestAccessToken() : null;
 
-    const guestAccessTokenHash = guestAccessToken
-      ? createHash("sha256").update(guestAccessToken).digest("hex")
-      : null;
+    const guestAccessToken = guestCredentials?.token ?? null;
+    const guestAccessTokenHash = guestCredentials?.tokenHash ?? null;
 
     /*
      * -------------------------------------------------
@@ -523,7 +525,7 @@ export async function POST(request: Request) {
       return createdOrder;
     });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         success: true,
 
@@ -545,6 +547,22 @@ export async function POST(request: Request) {
       },
       { status: 201 },
     );
+
+    if (guestAccessToken) {
+      response.cookies.set(
+        getGuestOrderCookieName(order.orderNumber),
+        guestAccessToken,
+        {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 7,
+        },
+      );
+    }
+
+    return response;
   } catch (error) {
     console.error("Create order error:", error);
 

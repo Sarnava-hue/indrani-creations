@@ -217,15 +217,20 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const currentStatus = order.status as OrderStatus;
     const requestedStatus = nextStatus as OrderStatus;
+    const canShipLegacyPaidPending =
+      currentStatus === "PENDING" &&
+      requestedStatus === "SHIPPED" &&
+      order.paymentStatus === "PAID";
 
-    if (!canTransitionOrderStatus(currentStatus, requestedStatus)) {
+    if (
+      !canShipLegacyPaidPending &&
+      !canTransitionOrderStatus(currentStatus, requestedStatus)
+    ) {
       return NextResponse.json(
         {
           error: `Order cannot move from ${currentStatus} to ${requestedStatus}.`,
         },
-        {
-          status: 409,
-        },
+        { status: 409 },
       );
     }
 
@@ -234,9 +239,7 @@ export async function PATCH(request: Request, context: RouteContext) {
         {
           error: "Invalid payment status",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -249,9 +252,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           error:
             "Payment status can only be changed through the payment verification system.",
         },
-        {
-          status: 409,
-        },
+        { status: 409 },
       );
     }
 
@@ -260,13 +261,36 @@ export async function PATCH(request: Request, context: RouteContext) {
         {
           error: "Invalid shipping status",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
-    if (nextStatus === "CANCELLED") {
+    /*
+     * Validate consistency rules before mutating order or inventory state.
+     */
+    if (requestedStatus === "DELIVERED" && nextShippingStatus !== "DELIVERED") {
+      return NextResponse.json(
+        {
+          error: "A delivered order must have delivered shipping status",
+        },
+        { status: 409 },
+      );
+    }
+
+    if (
+      requestedStatus === "SHIPPED" &&
+      currentStatus !== "SHIPPED" &&
+      !["SHIPPED", "IN_TRANSIT", "DELIVERED"].includes(nextShippingStatus)
+    ) {
+      return NextResponse.json(
+        {
+          error: "A shipped order must have an appropriate shipping status",
+        },
+        { status: 409 },
+      );
+    }
+
+    if (requestedStatus === "CANCELLED" && currentStatus !== "CANCELLED") {
       const result = await cancelOrderAndReleaseInventory(orderNumber);
 
       if (!result.cancelled) {
@@ -284,8 +308,16 @@ export async function PATCH(request: Request, context: RouteContext) {
       });
     }
 
-    if (nextStatus === "SHIPPED") {
-      const result = await shipOrderAndCommitInventory(orderNumber);
+    if (requestedStatus === "SHIPPED" && currentStatus !== "SHIPPED") {
+      const shipStatus = nextShippingStatus as
+        | "SHIPPED"
+        | "IN_TRANSIT"
+        | "DELIVERED";
+
+      const result = await shipOrderAndCommitInventory(
+        orderNumber,
+        shipStatus,
+      );
 
       if (!result.shipped) {
         return NextResponse.json(
@@ -301,50 +333,6 @@ export async function PATCH(request: Request, context: RouteContext) {
         success: true,
         message: "Order shipped and inventory committed.",
       });
-    }
-
-    /*
-     * Basic consistency rules.
-     *
-     * These prevent obviously contradictory
-     * combinations while keeping the workflow
-     * flexible enough for manual admin handling.
-     */
-
-    if (nextStatus === "DELIVERED" && nextShippingStatus !== "DELIVERED") {
-      return NextResponse.json(
-        {
-          error: "A delivered order must have delivered shipping status",
-        },
-        {
-          status: 409,
-        },
-      );
-    }
-
-    if (
-      nextStatus === "SHIPPED" &&
-      !["SHIPPED", "IN_TRANSIT", "DELIVERED"].includes(nextShippingStatus)
-    ) {
-      return NextResponse.json(
-        {
-          error: "A shipped order must have an appropriate shipping status",
-        },
-        {
-          status: 409,
-        },
-      );
-    }
-
-    if (requestedPaymentStatus === "PAID" && nextStatus === "CANCELLED") {
-      return NextResponse.json(
-        {
-          error: "A cancelled order cannot be marked as paid",
-        },
-        {
-          status: 409,
-        },
-      );
     }
 
     const plan = db.sql.public.order

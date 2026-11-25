@@ -325,141 +325,133 @@ export async function DELETE(
       );
     }
 
-    const image =
-      await getProductImage(
-        productId,
-        imageId,
-      );
-
-    if (!image) {
-      return NextResponse.json(
-        { error: "Image not found." },
-        { status: 404 },
-      );
-    }
-
-    const allImages =
-      await db.orm.public.ProductImage
-        .where({ productId })
-        .select(
-          "id",
-          "url",
-          "sortOrder",
-          "isPrimary",
-        )
-        .orderBy((item) =>
-          item.sortOrder.asc(),
-        )
-        .all();
-
-    /*
-     * Never allow a product to have zero
-     * images.
-     */
-    if (allImages.length === 1) {
-      return NextResponse.json(
-        {
-          error:
-            "A product must keep at least one image.",
-        },
-        { status: 400 },
-      );
-    }
-
-    /*
-     * If deleting the primary image,
-     * promote the first remaining image.
-     */
-    const nextPrimary =
-      image.isPrimary
-        ? allImages.find(
-            (item) => item.id !== imageId,
+    const txResult = await db.transaction(async (tx) => {
+      const allImages =
+        await tx.orm.public.ProductImage
+          .where({ productId })
+          .select(
+            "id",
+            "url",
+            "sortOrder",
+            "isPrimary",
           )
+          .orderBy((item) =>
+            item.sortOrder.asc(),
+          )
+          .all();
+
+      const targetImage = allImages.find((item) => item.id === imageId);
+
+      if (!targetImage) {
+        return {
+          ok: false as const,
+          status: 404,
+          error: "Image not found.",
+        };
+      }
+
+      /*
+       * Never allow a product to have zero
+       * images.
+       */
+      if (allImages.length <= 1) {
+        return {
+          ok: false as const,
+          status: 400,
+          error: "A product must keep at least one image.",
+        };
+      }
+
+      /*
+       * If deleting the primary image,
+       * promote the first remaining image.
+       */
+      const nextPrimary = targetImage.isPrimary
+        ? allImages.find((item) => item.id !== imageId) ?? null
         : null;
 
-    const deletePlan =
-      db.raw.sql`
-        DELETE FROM "productImage"
-        WHERE "id" = ${imageId}
-        AND "productId" = ${productId}
-      `.affectedCount().build();
-
-    await db.runtime().execute(
-      deletePlan,
-    );
-
-    if (nextPrimary) {
-      const primaryPlan =
+      const deletePlan =
         db.raw.sql`
-          UPDATE "productImage"
-          SET "isPrimary" = true
-          WHERE "id" = ${nextPrimary.id}
+          DELETE FROM "productImage"
+          WHERE "id" = ${imageId}
+          AND "productId" = ${productId}
         `.affectedCount().build();
 
-      await db.runtime().execute(
-        primaryPlan,
+      const deleteResult = await tx.execute(deletePlan);
+
+      if (deleteResult.affectedRows !== 1) {
+        return {
+          ok: false as const,
+          status: 404,
+          error: "Image not found.",
+        };
+      }
+
+      if (nextPrimary) {
+        const primaryPlan =
+          db.raw.sql`
+            UPDATE "productImage"
+            SET "isPrimary" = true
+            WHERE "id" = ${nextPrimary.id}
+            AND "productId" = ${productId}
+          `.affectedCount().build();
+
+        await tx.execute(primaryPlan);
+      }
+
+      /*
+       * Re-number sortOrder so there are no gaps.
+       */
+      const remaining = allImages.filter((item) => item.id !== imageId);
+
+      for (
+        let index = 0;
+        index < remaining.length;
+        index += 1
+      ) {
+        const imageToUpdate = remaining[index];
+
+        if (imageToUpdate.sortOrder !== index) {
+          const reorderPlan =
+            db.raw.sql`
+              UPDATE "productImage"
+              SET "sortOrder" = ${index}
+              WHERE "id" = ${imageToUpdate.id}
+              AND "productId" = ${productId}
+            `.affectedCount().build();
+
+          await tx.execute(reorderPlan);
+        }
+      }
+
+      return {
+        ok: true as const,
+        deletedUrl: targetImage.url,
+      };
+    });
+
+    if (!txResult.ok) {
+      return NextResponse.json(
+        { error: txResult.error },
+        { status: txResult.status },
       );
     }
 
     /*
-     * Re-number sortOrder so there are no gaps.
-     */
-    const remaining =
-      await db.orm.public.ProductImage
-        .where({ productId })
-        .select(
-          "id",
-          "sortOrder",
-        )
-        .orderBy((item) =>
-          item.sortOrder.asc(),
-        )
-        .all();
-
-    for (
-      let index = 0;
-      index < remaining.length;
-      index += 1
-    ) {
-      const imageToUpdate =
-        remaining[index];
-
-      if (
-        imageToUpdate.sortOrder !== index
-      ) {
-        const reorderPlan =
-          db.raw.sql`
-            UPDATE "productImage"
-            SET "sortOrder" = ${index}
-            WHERE "id" = ${imageToUpdate.id}
-          `.affectedCount().build();
-
-        await db.runtime().execute(
-          reorderPlan,
-        );
-      }
-    }
-
-    /*
-     * Delete physical file.
-     *
-     * Database deletion has already succeeded,
-     * so failure here should not report the
-     * entire operation as failed.
+     * Delete physical file safely after transaction commits.
      */
     try {
       const relativePath =
-        image.url.startsWith("/")
-          ? image.url.slice(1)
-          : image.url;
+        txResult.deletedUrl.startsWith("/")
+          ? txResult.deletedUrl.slice(1)
+          : txResult.deletedUrl;
 
-      const filePath = path.join(
-        process.cwd(),
-        "public",
-        relativePath,
-      );
+      const productsRoot = path.resolve(process.cwd(), "public", "products");
+      const filePath = path.resolve(process.cwd(), "public", relativePath);
 
-      await unlink(filePath);
+      if (filePath.startsWith(`${productsRoot}${path.sep}`)) {
+        await unlink(filePath);
+      }
     } catch (fileError) {
       console.warn(
         "Could not delete image file:",

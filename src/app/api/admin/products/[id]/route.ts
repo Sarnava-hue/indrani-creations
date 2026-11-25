@@ -318,44 +318,76 @@ export async function PATCH(
     ),
 
     "isOneOfOne" = ${payload.isOneOfOne !== false},
-    "isFeatured" = ${payload.isFeatured === true}
+    "isFeatured" = ${payload.isFeatured === true},
+    "updatedAt" = NOW()
 
   WHERE "id" = ${id}
 `
       .affectedCount()
       .build();
 
-    const updateResult = await db.runtime().execute(updatePlan);
+    const txResult = await db.transaction(async (tx) => {
+      const inventory = await tx.orm.public.Inventory.where({ productId: id })
+        .select("id", "reserved")
+        .first();
 
-    if (updateResult.affectedRows !== 1) {
-      return NextResponse.json(
-        { error: "Product not found." },
-        { status: 404 },
-      );
-    }
+      const reserved = inventory?.reserved ?? 0;
 
-    const inventory = await db.orm.public.Inventory.where({ productId: id })
-      .select("id")
-      .all();
+      if (inventoryQuantity < reserved) {
+        return {
+          ok: false as const,
+          status: 409,
+          error: `Inventory quantity cannot be lower than reserved stock (${reserved}).`,
+        };
+      }
 
-    if (inventory.length === 0) {
-      await db.orm.public.Inventory.create({
-        productId: id,
-        quantity: inventoryQuantity,
-        reserved: 0,
-      });
-    } else {
-      const inventoryId = inventory[0].id;
+      const updateResult = await tx.execute(updatePlan);
 
-      const inventoryPlan = db.raw.sql`
+      if (updateResult.affectedRows !== 1) {
+        return {
+          ok: false as const,
+          status: 404,
+          error: "Product not found.",
+        };
+      }
+
+      if (!inventory) {
+        await tx.orm.public.Inventory.create({
+          productId: id,
+          quantity: inventoryQuantity,
+          reserved: 0,
+        });
+      } else {
+        const inventoryPlan = db.raw.sql`
           UPDATE "inventory"
-          SET "quantity" = ${inventoryQuantity}
-          WHERE "id" = ${inventoryId}
+          SET
+            "quantity" = ${inventoryQuantity},
+            "updatedAt" = NOW()
+          WHERE "id" = ${inventory.id}
+            AND "reserved" <= ${inventoryQuantity}
         `
-        .affectedCount()
-        .build();
+          .affectedCount()
+          .build();
 
-      await db.runtime().execute(inventoryPlan);
+        const inventoryResult = await tx.execute(inventoryPlan);
+
+        if (inventoryResult.affectedRows !== 1) {
+          return {
+            ok: false as const,
+            status: 409,
+            error: "Inventory quantity cannot be lower than reserved stock.",
+          };
+        }
+      }
+
+      return { ok: true as const };
+    });
+
+    if (!txResult.ok) {
+      return NextResponse.json(
+        { error: txResult.error },
+        { status: txResult.status },
+      );
     }
 
     return NextResponse.json({

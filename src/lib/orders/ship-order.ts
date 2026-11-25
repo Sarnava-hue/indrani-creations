@@ -10,6 +10,8 @@ type ShipResult =
       reason: "ORDER_NOT_SHIPPABLE";
     };
 
+type ShippableShippingStatus = "SHIPPED" | "IN_TRANSIT" | "DELIVERED";
+
 const SHIPPABLE_STATUSES = [
   "PENDING",
   "CONFIRMED",
@@ -19,6 +21,7 @@ const SHIPPABLE_STATUSES = [
 
 export async function shipOrderAndCommitInventory(
   orderNumber: string,
+  shippingStatus: ShippableShippingStatus = "SHIPPED",
 ): Promise<ShipResult> {
   return db.transaction(async (tx) => {
     const order = await tx.orm.public.Order.where({
@@ -51,6 +54,39 @@ export async function shipOrderAndCommitInventory(
     }
 
     if (order.paymentStatus !== "PAID") {
+      return {
+        shipped: false,
+        reason: "ORDER_NOT_SHIPPABLE",
+      };
+    }
+
+    /*
+     * Mark the order as shipped, guarding on observed status & PAID paymentStatus
+     * before committing reserved inventory.
+     */
+    const updatePlan = db.sql.public.order
+      .update({
+        status: "SHIPPED",
+        shippingStatus,
+      })
+      .where((fields, fns) =>
+        fns.and(
+          fns.eq(fields.id, order.id),
+          fns.eq(fields.status, order.status),
+          fns.eq(fields.paymentStatus, "PAID"),
+        ),
+      )
+      .returning(
+        "id",
+        "orderNumber",
+        "status",
+        "shippingStatus",
+      )
+      .build();
+
+    const updatedRows = await tx.query(updatePlan);
+
+    if (updatedRows.length !== 1) {
       return {
         shipped: false,
         reason: "ORDER_NOT_SHIPPABLE",
@@ -96,29 +132,6 @@ export async function shipOrderAndCommitInventory(
           `Unable to commit inventory for product ${item.productId}.`,
         );
       }
-    }
-
-    /*
-     * Mark the order as shipped.
-     */
-    const updatePlan = db.sql.public.order
-      .update({
-        status: "SHIPPED",
-        shippingStatus: "SHIPPED",
-      })
-      .where((fields, fns) => fns.eq(fields.id, order.id))
-      .returning(
-        "id",
-        "orderNumber",
-        "status",
-        "shippingStatus",
-      )
-      .build();
-
-    const updatedRows = await tx.query(updatePlan);
-
-    if (updatedRows.length !== 1) {
-      throw new Error("Failed to mark order as shipped.");
     }
 
     return {

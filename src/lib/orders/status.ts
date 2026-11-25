@@ -17,11 +17,14 @@ const allowedTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
 
   CONFIRMED: [
     "PROCESSING",
+    "PACKED",
+    "SHIPPED",
     "CANCELLED",
   ],
 
   PROCESSING: [
     "PACKED",
+    "SHIPPED",
     "CANCELLED",
   ],
 

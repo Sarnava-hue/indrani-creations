@@ -185,56 +185,62 @@ export async function POST(request: Request) {
       suffix += 1;
     }
 
-    const product = await db.orm.public.Product.create({
-      categoryId,
-      name,
-      slug,
-      sku,
-      pricePaise,
-      compareAtPricePaise,
-      fabric:
-        typeof payload.fabric === "string"
-          ? payload.fabric.trim() || null
-          : null,
-      color:
-        typeof payload.color === "string" ? payload.color.trim() || null : null,
-      occasion:
-        typeof payload.occasion === "string"
-          ? payload.occasion.trim() || null
-          : null,
-      pattern:
-        typeof payload.pattern === "string"
-          ? payload.pattern.trim() || null
-          : null,
-      sareeLength:
-        typeof payload.sareeLength === "string"
-          ? payload.sareeLength.trim() || null
-          : null,
-      blouseIncluded: payload.blouseIncluded === true,
-      blouseDetails:
-        typeof payload.blouseDetails === "string"
-          ? payload.blouseDetails.trim() || null
-          : null,
-      shortDescription:
-        typeof payload.shortDescription === "string"
-          ? payload.shortDescription.trim() || null
-          : null,
-      description:
-        typeof payload.description === "string"
-          ? payload.description.trim() || null
-          : null,
-      careInstructions:
-        typeof payload.careInstructions === "string"
-          ? payload.careInstructions.trim() || null
-          : null,
-      isOneOfOne: payload.isOneOfOne !== false,
-      isFeatured: payload.isFeatured === true,
-    });
+    const product = await db.transaction(async (tx) => {
+      const created = await tx.orm.public.Product.create({
+        categoryId,
+        name,
+        slug,
+        sku,
+        pricePaise,
+        compareAtPricePaise,
+        fabric:
+          typeof payload.fabric === "string"
+            ? payload.fabric.trim() || null
+            : null,
+        color:
+          typeof payload.color === "string"
+            ? payload.color.trim() || null
+            : null,
+        occasion:
+          typeof payload.occasion === "string"
+            ? payload.occasion.trim() || null
+            : null,
+        pattern:
+          typeof payload.pattern === "string"
+            ? payload.pattern.trim() || null
+            : null,
+        sareeLength:
+          typeof payload.sareeLength === "string"
+            ? payload.sareeLength.trim() || null
+            : null,
+        blouseIncluded: payload.blouseIncluded === true,
+        blouseDetails:
+          typeof payload.blouseDetails === "string"
+            ? payload.blouseDetails.trim() || null
+            : null,
+        shortDescription:
+          typeof payload.shortDescription === "string"
+            ? payload.shortDescription.trim() || null
+            : null,
+        description:
+          typeof payload.description === "string"
+            ? payload.description.trim() || null
+            : null,
+        careInstructions:
+          typeof payload.careInstructions === "string"
+            ? payload.careInstructions.trim() || null
+            : null,
+        isOneOfOne: payload.isOneOfOne !== false,
+        isFeatured: payload.isFeatured === true,
+      });
 
-    await db.orm.public.Inventory.create({
-      productId: product.id,
-      quantity: inventoryQuantity,
-      reserved: 0,
+      await tx.orm.public.Inventory.create({
+        productId: created.id,
+        quantity: inventoryQuantity,
+        reserved: 0,
+      });
+
+      return created;
     });
 
     return NextResponse.json(

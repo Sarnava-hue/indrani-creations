@@ -57,13 +57,19 @@ export async function cancelOrderAndReleaseInventory(
     }
 
     /*
-     * Update the order to CANCELLED.
+     * Update the order to CANCELLED, guarding on the observed status
+     * so concurrent cancel/ship operations cannot both succeed.
      */
     const updatePlan = db.sql.public.order
       .update({
         status: "CANCELLED",
       })
-      .where((fields, fns) => fns.eq(fields.id, order.id))
+      .where((fields, fns) =>
+        fns.and(
+          fns.eq(fields.id, order.id),
+          fns.eq(fields.status, order.status),
+        ),
+      )
       .returning(
         "id",
         "orderNumber",
@@ -74,7 +80,10 @@ export async function cancelOrderAndReleaseInventory(
     const updatedRows = await tx.query(updatePlan);
 
     if (updatedRows.length !== 1) {
-      throw new Error("Failed to cancel order.");
+      return {
+        cancelled: false,
+        reason: "ORDER_NOT_CANCELLABLE",
+      };
     }
 
     const orderItems = await tx.orm.public.OrderItem.where({

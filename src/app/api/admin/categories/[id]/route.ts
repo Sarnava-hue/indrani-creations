@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAdmin } from "@/lib/auth/admin";
+import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 
 type RouteContext = {
@@ -11,7 +11,11 @@ type RouteContext = {
 
 export async function GET(_request: Request, context: RouteContext) {
   try {
-    await requireAdmin();
+    const { response } = await requireAdminApi();
+
+    if (response) {
+      return response;
+    }
 
     const { id } = await context.params;
     const categoryId = Number(id);
@@ -60,7 +64,11 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    await requireAdmin();
+    const { response } = await requireAdminApi();
+
+    if (response) {
+      return response;
+    }
 
     const { id } = await context.params;
     const categoryId = Number(id);
@@ -252,7 +260,11 @@ export async function PATCH(request: Request, context: RouteContext) {
 
 export async function DELETE(_request: Request, context: RouteContext) {
   try {
-    await requireAdmin();
+    const { response } = await requireAdminApi();
+
+    if (response) {
+      return response;
+    }
 
     const { id } = await context.params;
     const categoryId = Number(id);

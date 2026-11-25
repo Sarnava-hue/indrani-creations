@@ -1,17 +1,6 @@
 import { NextResponse } from "next/server";
-
-import { getSession } from "@/lib/auth/session";
+import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
-
-async function requireAdmin() {
-  const session = await getSession();
-
-  if (!session || session.role !== "ADMIN") {
-    return null;
-  }
-
-  return session;
-}
 
 function toPaise(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
@@ -23,13 +12,10 @@ function toPaise(value: unknown): number | null {
 
 export async function GET() {
   try {
-    const session = await requireAdmin();
+    const { response } = await requireAdminApi();
 
-    if (!session) {
-      return NextResponse.json(
-        { error: "Admin authentication required." },
-        { status: 401 },
-      );
+    if (response) {
+      return response;
     }
 
     const products = await db.orm.public.Product.select(
@@ -60,13 +46,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await requireAdmin();
+    const { response } = await requireAdminApi();
 
-    if (!session) {
-      return NextResponse.json(
-        { error: "Admin authentication required." },
-        { status: 401 },
-      );
+    if (response) {
+      return response;
     }
 
     const body: unknown = await request.json();

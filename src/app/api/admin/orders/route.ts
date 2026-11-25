@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 
-import { requireAdmin } from "@/lib/auth/admin";
+import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 
 export async function GET() {
   try {
-    await requireAdmin();
+    const { response } = await requireAdminApi();
+
+    if (response) {
+      return response;
+    }
 
     const orders = await db.orm.public.Order
       .select(

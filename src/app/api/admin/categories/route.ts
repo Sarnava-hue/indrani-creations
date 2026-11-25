@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 
-import { requireAdmin } from "@/lib/auth/admin";
+import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 
 export async function GET() {
   try {
-    await requireAdmin();
+    const { response } = await requireAdminApi();
+
+    if (response) {
+      return response;
+    }
 
     const categories = await db.orm.public.Category.select(
       "id",
@@ -37,7 +41,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    const { response } = await requireAdminApi();
+
+    if (response) {
+      return response;
+    }
 
     const body = await request.json();
 

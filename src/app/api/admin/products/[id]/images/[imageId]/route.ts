@@ -2,18 +2,8 @@ import { NextResponse } from "next/server";
 import { unlink } from "fs/promises";
 import path from "path";
 
-import { getSession } from "@/lib/auth/session";
+import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
-
-async function requireAdmin() {
-  const session = await getSession();
-
-  if (!session || session.role !== "ADMIN") {
-    return null;
-  }
-
-  return session;
-}
 
 function parseId(value: string) {
   const id = Number(value);
@@ -57,13 +47,10 @@ export async function PATCH(
   },
 ) {
   try {
-    const session = await requireAdmin();
+    const { response } = await requireAdminApi();
 
-    if (!session) {
-      return NextResponse.json(
-        { error: "Admin authentication required." },
-        { status: 401 },
-      );
+    if (response) {
+      return response;
     }
 
     const {
@@ -314,16 +301,10 @@ export async function DELETE(
   },
 ) {
   try {
-    const session = await requireAdmin();
+    const { response } = await requireAdminApi();
 
-    if (!session) {
-      return NextResponse.json(
-        {
-          error:
-            "Admin authentication required.",
-        },
-        { status: 401 },
-      );
+    if (response) {
+      return response;
     }
 
     const {

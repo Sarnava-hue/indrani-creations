@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAdmin } from "@/lib/auth/admin";
+import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 
 type RouteContext = {
@@ -9,7 +9,11 @@ type RouteContext = {
 
 export async function POST(request: Request, context: RouteContext) {
   try {
-    await requireAdmin();
+    const { response } = await requireAdminApi();
+
+    if (response) {
+      return response;
+    }
 
     const { orderNumber } = await context.params;
 

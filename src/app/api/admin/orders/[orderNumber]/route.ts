@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cancelOrderAndReleaseInventory } from "@/lib/orders/cancel-order";
-import { requireAdmin } from "@/lib/auth/admin";
+import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 import { shipOrderAndCommitInventory } from "@/lib/orders/ship-order";
 import {
@@ -16,7 +16,11 @@ type RouteContext = {
 
 export async function GET(_request: Request, context: RouteContext) {
   try {
-    await requireAdmin();
+    const { response } = await requireAdminApi();
+
+    if (response) {
+      return response;
+    }
 
     const { orderNumber } = await context.params;
 
@@ -131,7 +135,11 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   try {
-    await requireAdmin();
+    const { response } = await requireAdminApi();
+
+    if (response) {
+      return response;
+    }
 
     const { orderNumber } = await context.params;
 

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Header } from "@/components/store/header";
 import { ProductCard } from "@/components/store/product-card";
 import { db } from "@/lib/db";
 import Image from "next/image";
@@ -106,8 +105,7 @@ export default async function HomePage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#faf8f4] text-[#29251f]">
-      <Header />
+    <main className="bg-[#faf8f4] text-[#29251f]">
 
       {/* HERO */}
       <section className="relative isolate overflow-hidden bg-[#faf8f4] md:min-h-[740px] md:bg-[#e9e0d4]">
@@ -415,78 +413,6 @@ export default async function HomePage() {
           More ways to stay connected coming soon.
         </p>
       </section>
-
-      {/* FOOTER */}
-      <footer className="bg-[#29251f] px-6 py-14 text-[#ded5ca] md:px-12">
-        <div className="mx-auto grid max-w-[1440px] gap-10 md:grid-cols-4">
-          <div className="md:col-span-2">
-            <div className="font-serif text-3xl tracking-[0.12em] text-white">
-              INDRANI
-            </div>
-            <div className="mt-1 text-[8px] tracking-[0.45em]">CREATIONS</div>
-            <p className="mt-6 max-w-sm text-sm leading-6 text-[#aaa096]">
-              Sarees, artisanal bangles and jewellery for the moments that make
-              life beautiful.
-            </p>
-          </div>
-
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.25em] text-[#aaa096]">
-              Explore
-            </p>
-            <div className="mt-5 space-y-3 text-sm">
-              <Link href="/shop" className="block hover:text-white">
-                Shop all
-              </Link>
-              <Link
-                href="/shop?category=silk-sarees"
-                className="block hover:text-white"
-              >
-                Sarees
-              </Link>
-              <Link
-                href="/shop?category=bangles"
-                className="block hover:text-white"
-              >
-                Bangles
-              </Link>
-              <Link
-                href="/shop?category=earrings"
-                className="block hover:text-white"
-              >
-                Earrings
-              </Link>
-              <Link
-                href="/shop?category=necklaces"
-                className="block hover:text-white"
-              >
-                Necklaces
-              </Link>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.25em] text-[#aaa096]">
-              Help
-            </p>
-            <div className="mt-5 space-y-3 text-sm">
-              <Link href="/contact" className="block hover:text-white">
-                Contact
-              </Link>
-              <Link href="/shipping" className="block hover:text-white">
-                Shipping
-              </Link>
-              <Link href="/returns" className="block hover:text-white">
-                Returns
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-14 max-w-[1440px] border-t border-white/10 pt-6 text-xs text-[#8e877f]">
-          © {new Date().getFullYear()} Indrani Creations. All rights reserved.
-        </div>
-      </footer>
-    </div>
+    </main>
   );
 }

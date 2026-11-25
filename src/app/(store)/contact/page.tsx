@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { Header } from "@/components/store/header";
-
 export const metadata: Metadata = {
   title: "Contact Us",
   description:
@@ -14,8 +12,7 @@ export default function ContactPage() {
   const contactPhone = process.env.NEXT_PUBLIC_CONTACT_PHONE?.trim() || null;
 
   return (
-    <main className="min-h-screen bg-[#faf8f4] text-[#29251f]">
-      <Header />
+    <main className="bg-[#faf8f4] text-[#29251f]">
 
       <section className="border-b border-[#e2d9ce] bg-[#f3eee7]">
         <div className="mx-auto max-w-[1440px] px-6 py-16 md:px-12 md:py-24">

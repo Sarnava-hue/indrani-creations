@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Header } from "@/components/store/header";
 import Image from "next/image";
 
 const services = [
@@ -172,8 +171,7 @@ export const metadata = {
 
 export default function AboutPage() {
   return (
-    <main className="min-h-screen bg-[#faf8f4] text-[#29251f]">
-      <Header />
+    <main className="bg-[#faf8f4] text-[#29251f]">
 
       {/* SERVICE HIGHLIGHTS */}
       <section className="mx-auto grid max-w-[1440px] gap-12 px-6 py-16 md:grid-cols-3 md:gap-8 md:px-12 md:py-20">
@@ -392,60 +390,6 @@ export default function AboutPage() {
           </button>
         </form>
       </section>
-
-      {/* FOOTER */}
-      <footer className="bg-[#29251f] px-6 py-14 text-[#ded5ca] md:px-12">
-        <div className="mx-auto grid max-w-[1440px] gap-10 md:grid-cols-4">
-          <div className="md:col-span-2">
-            <div className="font-serif text-3xl tracking-[0.12em] text-white">
-              INDRANI
-            </div>
-            <div className="mt-1 text-[8px] tracking-[0.45em]">CREATIONS</div>
-            <p className="mt-6 max-w-sm text-sm leading-6 text-[#aaa096]">
-              Sarees, artisanal bangles and jewellery for the moments that make
-              life beautiful.
-            </p>
-          </div>
-
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.25em] text-[#aaa096]">
-              Our services
-            </p>
-            <div className="mt-5 space-y-3 text-sm">
-              <Link href="/account/orders" className="block hover:text-white">
-                Order Tracking
-              </Link>
-              <Link href="/contact" className="block hover:text-white">
-                Contact Us
-              </Link>
-              <Link href="/shipping" className="block hover:text-white">
-                Shipping
-              </Link>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-[10px] uppercase tracking-[0.25em] text-[#aaa096]">
-              About us
-            </p>
-            <div className="mt-5 space-y-3 text-sm">
-              <Link href="/about" className="block hover:text-white">
-                Our Story
-              </Link>
-              <Link href="/returns" className="block hover:text-white">
-                Exchange Policy
-              </Link>
-              <Link href="/shop" className="block hover:text-white">
-                Shop
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-14 max-w-[1440px] border-t border-white/10 pt-6 text-center text-xs text-[#8e877f]">
-          © {new Date().getFullYear()} Indrani Creations. All rights reserved.
-        </div>
-      </footer>
     </main>
   );
 }

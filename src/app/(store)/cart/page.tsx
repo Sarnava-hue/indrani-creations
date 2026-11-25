@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 
 import { useCart } from "@/components/store/cart-provider";
@@ -8,10 +9,20 @@ import { formatINR } from "@/lib/utils/currency";
 export default function CartPage() {
   const {
     items,
+    itemCount,
     subtotalPaise,
+    hasUnavailableItems,
+    syncing,
+    notices,
     updateQuantity,
     removeItem,
+    syncCart,
+    dismissNotices,
   } = useCart();
+
+  useEffect(() => {
+    void syncCart();
+  }, [syncCart]);
 
   if (items.length === 0) {
     return (
@@ -44,121 +55,163 @@ export default function CartPage() {
   return (
     <main className="min-h-screen bg-[#f7f4ef]">
       <section className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-24">
-        <div className="mb-12">
-          <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
-            Your bag
-          </p>
+        <div className="mb-12 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-neutral-500">
+              Your bag
+            </p>
 
-          <h1 className="mt-4 text-5xl font-light tracking-tight text-neutral-900">
-            {items.length}{" "}
-            {items.length === 1
-              ? "piece"
-              : "pieces"}
-          </h1>
+            <h1 className="mt-4 text-5xl font-light tracking-tight text-neutral-900">
+              {itemCount}{" "}
+              {itemCount === 1
+                ? "piece"
+                : "pieces"}
+            </h1>
+          </div>
+
+          {syncing ? (
+            <p className="text-xs uppercase tracking-[0.15em] text-neutral-500">
+              Checking live availability...
+            </p>
+          ) : null}
         </div>
+
+        {notices.length > 0 ? (
+          <div
+            role="status"
+            className="mb-8 flex items-start justify-between gap-4 border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+          >
+            <ul className="space-y-1">
+              {notices.map((notice) => (
+                <li key={notice}>{notice}</li>
+              ))}
+            </ul>
+
+            <button
+              type="button"
+              onClick={dismissNotices}
+              className="shrink-0 text-xs uppercase tracking-[0.15em] underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        ) : null}
 
         <div className="grid gap-12 lg:grid-cols-[1fr_380px]">
           {/* Items */}
 
           <div className="divide-y divide-black/10 border-y border-black/10">
-            {items.map((item) => (
-              <article
-                key={item.productId}
-                className="flex gap-6 py-8"
-              >
-                {/* Image */}
+            {items.map((item) => {
+              const unavailable = item.maxQuantity <= 0;
 
-                <div className="relative h-40 w-32 shrink-0 overflow-hidden bg-gradient-to-br from-[#e6ded3] via-[#d5c7b7] to-[#b9a998]">
-                  {item.imageUrl && (
-                    <div
-                      className="absolute inset-0 bg-cover bg-center"
-                      style={{
-                        backgroundImage: `url("${item.imageUrl}")`,
-                      }}
-                    />
-                  )}
-                </div>
+              return (
+                <article
+                  key={item.productId}
+                  className="flex gap-6 py-8"
+                >
+                  {/* Image */}
 
-                {/* Information */}
+                  <div className="relative h-40 w-32 shrink-0 overflow-hidden bg-gradient-to-br from-[#e6ded3] via-[#d5c7b7] to-[#b9a998]">
+                    {item.imageUrl && (
+                      <div
+                        className="absolute inset-0 bg-cover bg-center"
+                        style={{
+                          backgroundImage: `url("${item.imageUrl}")`,
+                        }}
+                      />
+                    )}
+                  </div>
 
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <div className="flex justify-between gap-4">
-                    <div>
-                      <Link
-                        href={`/products/${item.slug}`}
-                        className="text-xl font-light text-neutral-900 hover:underline"
-                      >
-                        {item.name}
-                      </Link>
+                  {/* Information */}
 
-                      <p className="mt-2 text-xs uppercase tracking-[0.15em] text-neutral-500">
-                        SKU: {item.sku}
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <div className="flex justify-between gap-4">
+                      <div>
+                        <Link
+                          href={`/products/${item.slug}`}
+                          className="text-xl font-light text-neutral-900 hover:underline"
+                        >
+                          {item.name}
+                        </Link>
+
+                        <p className="mt-2 text-xs uppercase tracking-[0.15em] text-neutral-500">
+                          SKU: {item.sku}
+                        </p>
+
+                        {unavailable ? (
+                          <p className="mt-2 inline-block bg-red-50 px-2.5 py-1 text-[11px] uppercase tracking-[0.12em] text-red-700">
+                            Currently out of stock / unavailable
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <p className="text-sm text-neutral-900">
+                        {unavailable
+                          ? "Unavailable"
+                          : formatINR(
+                              item.pricePaise *
+                                item.quantity,
+                            )}
                       </p>
                     </div>
 
-                    <p className="text-sm text-neutral-900">
-                      {formatINR(
-                        item.pricePaise *
-                          item.quantity,
-                      )}
-                    </p>
-                  </div>
+                    <div className="mt-auto flex items-center justify-between pt-6">
+                      {/* Quantity */}
 
-                  <div className="mt-auto flex items-center justify-between pt-6">
-                    {/* Quantity */}
+                      <div className="flex items-center border border-black/15 bg-white">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateQuantity(
+                              item.productId,
+                              item.quantity - 1,
+                            )
+                          }
+                          disabled={unavailable || item.quantity <= 1}
+                          className="px-4 py-2 text-lg disabled:opacity-30"
+                          aria-label={`Decrease quantity of ${item.name}`}
+                        >
+                          −
+                        </button>
 
-                    <div className="flex items-center border border-black/15 bg-white">
+                        <span className="min-w-10 text-center text-sm">
+                          {item.quantity}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            updateQuantity(
+                              item.productId,
+                              item.quantity + 1,
+                            )
+                          }
+                          disabled={
+                            unavailable ||
+                            item.quantity >=
+                              item.maxQuantity
+                          }
+                          className="px-4 py-2 text-lg disabled:opacity-30"
+                          aria-label={`Increase quantity of ${item.name}`}
+                        >
+                          +
+                        </button>
+                      </div>
+
                       <button
                         type="button"
                         onClick={() =>
-                          updateQuantity(
-                            item.productId,
-                            item.quantity - 1,
-                          )
+                          removeItem(item.productId)
                         }
-                        disabled={item.quantity <= 1}
-                        className="px-4 py-2 text-lg disabled:opacity-30"
-                        aria-label={`Decrease quantity of ${item.name}`}
+                        className="text-xs uppercase tracking-[0.15em] text-neutral-500 underline-offset-4 hover:text-neutral-900 hover:underline"
                       >
-                        −
-                      </button>
-
-                      <span className="min-w-10 text-center text-sm">
-                        {item.quantity}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateQuantity(
-                            item.productId,
-                            item.quantity + 1,
-                          )
-                        }
-                        disabled={
-                          item.quantity >=
-                          item.maxQuantity
-                        }
-                        className="px-4 py-2 text-lg disabled:opacity-30"
-                        aria-label={`Increase quantity of ${item.name}`}
-                      >
-                        +
+                        Remove
                       </button>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        removeItem(item.productId)
-                      }
-                      className="text-xs uppercase tracking-[0.15em] text-neutral-500 underline-offset-4 hover:text-neutral-900 hover:underline"
-                    >
-                      Remove
-                    </button>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
 
           {/* Summary */}
@@ -199,12 +252,27 @@ export default function CartPage() {
                 </div>
               </div>
 
-              <Link
-                href="/checkout"
-                className="mt-8 flex w-full justify-center bg-neutral-900 px-8 py-5 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-neutral-800"
-              >
-                Proceed to Checkout
-              </Link>
+              {hasUnavailableItems ? (
+                <div className="mt-8 space-y-3">
+                  <p className="text-xs leading-5 text-red-700">
+                    Remove unavailable items from your bag before proceeding to checkout.
+                  </p>
+
+                  <span
+                    aria-disabled="true"
+                    className="flex w-full cursor-not-allowed justify-center bg-neutral-300 px-8 py-5 text-xs uppercase tracking-[0.25em] text-white"
+                  >
+                    Proceed to Checkout
+                  </span>
+                </div>
+              ) : (
+                <Link
+                  href="/checkout"
+                  className="mt-8 flex w-full justify-center bg-neutral-900 px-8 py-5 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-neutral-800"
+                >
+                  Proceed to Checkout
+                </Link>
+              )}
 
               <Link
                 href="/shop"

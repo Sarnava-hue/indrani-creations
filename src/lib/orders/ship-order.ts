@@ -134,6 +134,36 @@ export async function shipOrderAndCommitInventory(
       }
     }
 
+    const nowIso = new Date().toISOString();
+    const existingShipment = await tx.orm.public.Shipment.where({
+      orderId: order.id,
+    })
+      .select("id", "shippedAt", "deliveredAt")
+      .first();
+
+    if (existingShipment) {
+      const shipmentPlan = tx.sql.public.shipment
+        .update({
+          status: shippingStatus,
+          shippedAt: existingShipment.shippedAt ?? nowIso,
+          deliveredAt:
+            shippingStatus === "DELIVERED"
+              ? (existingShipment.deliveredAt ?? nowIso)
+              : existingShipment.deliveredAt,
+        })
+        .where((fields, fns) => fns.eq(fields.id, existingShipment.id))
+        .build();
+
+      await tx.execute(shipmentPlan);
+    } else {
+      await tx.orm.public.Shipment.create({
+        orderId: order.id,
+        status: shippingStatus,
+        shippedAt: nowIso,
+        deliveredAt: shippingStatus === "DELIVERED" ? nowIso : null,
+      });
+    }
+
     return {
       shipped: true,
       orderId: order.id,

@@ -2,17 +2,35 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useMemo,
+  useState,
   useSyncExternalStore,
 } from "react";
 
 import type { CartItem } from "@/lib/cart/types";
+import { formatINR } from "@/lib/utils/currency";
+
+type LiveCartProduct = {
+  id: number;
+  name: string;
+  slug: string;
+  sku: string;
+  pricePaise: number;
+  isActive: boolean;
+  isOneOfOne: boolean;
+  availableQuantity: number;
+  imageUrl: string | null;
+};
 
 type CartContextValue = {
   items: CartItem[];
   itemCount: number;
   subtotalPaise: number;
+  hasUnavailableItems: boolean;
+  syncing: boolean;
+  notices: string[];
 
   addItem: (item: CartItem) => void;
   updateQuantity: (
@@ -21,6 +39,8 @@ type CartContextValue = {
   ) => void;
   removeItem: (productId: number) => void;
   clearCart: () => void;
+  syncCart: () => Promise<void>;
+  dismissNotices: () => void;
 };
 
 const CartContext =
@@ -138,7 +158,10 @@ export function CartProvider({
     getServerSnapshot,
   );
 
-  function addItem(item: CartItem) {
+  const [syncing, setSyncing] = useState(false);
+  const [notices, setNotices] = useState<string[]>([]);
+
+  const addItem = useCallback((item: CartItem) => {
     const currentItems = getSnapshot();
 
     const existing = currentItems.find(
@@ -170,22 +193,28 @@ export function CartProvider({
         cartItem.productId === item.productId
           ? {
               ...cartItem,
-              quantity: newQuantity,
+              quantity: Math.max(1, newQuantity),
+              maxQuantity: item.maxQuantity,
+              pricePaise: item.pricePaise,
+              name: item.name,
+              slug: item.slug,
+              sku: item.sku,
+              imageUrl: item.imageUrl ?? cartItem.imageUrl,
             }
           : cartItem,
       ),
     );
-  }
+  }, []);
 
-  function updateQuantity(
+  const updateQuantity = useCallback((
     productId: number,
     quantity: number,
-  ) {
+  ) => {
     const currentItems = getSnapshot();
 
     saveCart(
       currentItems.map((item) => {
-        if (item.productId !== productId) {
+        if (item.productId !== productId || item.maxQuantity <= 0) {
           return item;
         }
 
@@ -203,9 +232,9 @@ export function CartProvider({
         };
       }),
     );
-  }
+  }, []);
 
-  function removeItem(productId: number) {
+  const removeItem = useCallback((productId: number) => {
     const currentItems = getSnapshot();
 
     saveCart(
@@ -214,11 +243,167 @@ export function CartProvider({
           item.productId !== productId,
       ),
     );
-  }
+  }, []);
 
-  function clearCart() {
+  const clearCart = useCallback(() => {
     saveCart([]);
-  }
+    setNotices([]);
+  }, []);
+
+  const dismissNotices = useCallback(() => {
+    setNotices([]);
+  }, []);
+
+  const syncCart = useCallback(async () => {
+    const currentItems = getSnapshot();
+
+    if (currentItems.length === 0) {
+      setNotices([]);
+      return;
+    }
+
+    try {
+      setSyncing(true);
+
+      const response = await fetch("/api/cart/validate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          productIds: currentItems.map((item) => item.productId),
+        }),
+      });
+
+      if (!response.ok) {
+        return;
+      }
+
+      const data: unknown = await response.json();
+
+      if (
+        typeof data !== "object" ||
+        data === null ||
+        !("products" in data) ||
+        !Array.isArray(data.products)
+      ) {
+        return;
+      }
+
+      const liveProducts = data.products as LiveCartProduct[];
+      const liveMap = new Map(
+        liveProducts.map((product) => [product.id, product]),
+      );
+
+      let changed = false;
+      const nextNotices: string[] = [];
+
+      const nextItems = currentItems.map((item) => {
+        const live = liveMap.get(item.productId);
+
+        if (!live || !live.isActive) {
+          nextNotices.push(
+            `"${item.name}" is no longer available and cannot be purchased.`,
+          );
+
+          if (item.maxQuantity !== 0) {
+            changed = true;
+            return {
+              ...item,
+              maxQuantity: 0,
+            };
+          }
+
+          return item;
+        }
+
+        const liveMax = live.isOneOfOne
+          ? Math.min(1, live.availableQuantity)
+          : live.availableQuantity;
+
+        const nextImageUrl = live.imageUrl ?? item.imageUrl;
+
+        if (liveMax <= 0) {
+          nextNotices.push(
+            `"${live.name}" is currently out of stock.`,
+          );
+
+          if (
+            item.maxQuantity !== 0 ||
+            item.pricePaise !== live.pricePaise ||
+            item.name !== live.name ||
+            item.slug !== live.slug ||
+            item.sku !== live.sku ||
+            item.isOneOfOne !== live.isOneOfOne ||
+            item.imageUrl !== nextImageUrl
+          ) {
+            changed = true;
+          }
+
+          return {
+            ...item,
+            name: live.name,
+            slug: live.slug,
+            sku: live.sku,
+            pricePaise: live.pricePaise,
+            imageUrl: nextImageUrl,
+            isOneOfOne: live.isOneOfOne,
+            maxQuantity: 0,
+          };
+        }
+
+        const nextQuantity = Math.min(item.quantity, liveMax);
+
+        if (live.pricePaise !== item.pricePaise) {
+          nextNotices.push(
+            `Price for "${live.name}" updated to ${formatINR(live.pricePaise)}.`,
+          );
+        }
+
+        if (item.quantity > liveMax) {
+          nextNotices.push(
+            `Quantity for "${live.name}" adjusted to ${liveMax} based on current availability.`,
+          );
+        }
+
+        if (
+          item.name !== live.name ||
+          item.slug !== live.slug ||
+          item.sku !== live.sku ||
+          item.pricePaise !== live.pricePaise ||
+          item.imageUrl !== nextImageUrl ||
+          item.isOneOfOne !== live.isOneOfOne ||
+          item.maxQuantity !== liveMax ||
+          item.quantity !== nextQuantity
+        ) {
+          changed = true;
+        }
+
+        return {
+          ...item,
+          name: live.name,
+          slug: live.slug,
+          sku: live.sku,
+          pricePaise: live.pricePaise,
+          imageUrl: nextImageUrl,
+          isOneOfOne: live.isOneOfOne,
+          maxQuantity: liveMax,
+          quantity: nextQuantity,
+        };
+      });
+
+      if (changed) {
+        saveCart(nextItems);
+      }
+
+      setNotices(nextNotices);
+    } catch (error) {
+      console.error("Failed to sync cart:", error);
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
 
   const itemCount = useMemo(
     () =>
@@ -235,9 +420,14 @@ export function CartProvider({
       items.reduce(
         (total, item) =>
           total +
-          item.pricePaise * item.quantity,
+          (item.maxQuantity > 0 ? item.pricePaise * item.quantity : 0),
         0,
       ),
+    [items],
+  );
+
+  const hasUnavailableItems = useMemo(
+    () => items.some((item) => item.maxQuantity <= 0),
     [items],
   );
 
@@ -246,15 +436,29 @@ export function CartProvider({
       items,
       itemCount,
       subtotalPaise,
+      hasUnavailableItems,
+      syncing,
+      notices,
       addItem,
       updateQuantity,
       removeItem,
       clearCart,
+      syncCart,
+      dismissNotices,
     }),
     [
       items,
       itemCount,
       subtotalPaise,
+      hasUnavailableItems,
+      syncing,
+      notices,
+      addItem,
+      updateQuantity,
+      removeItem,
+      clearCart,
+      syncCart,
+      dismissNotices,
     ],
   );
 

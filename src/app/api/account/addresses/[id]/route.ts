@@ -8,7 +8,7 @@ type AddressInput = {
   recipientName: string;
   phone: string;
   line1: string;
-  line2?: string;
+  line2?: string | null;
   city: string;
   state: string;
   postalCode: string;
@@ -71,7 +71,16 @@ export async function PATCH(
       );
     }
 
-    const body: unknown = await request.json();
+    let body: unknown;
+
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid request body." },
+        { status: 400 },
+      );
+    }
 
     if (
       typeof body !== "object" ||
@@ -121,7 +130,8 @@ export async function PATCH(
 
     if (
       payload.line2 !== undefined &&
-      payload.line2.length > 200
+      payload.line2 !== null &&
+      (typeof payload.line2 !== "string" || payload.line2.length > 200)
     ) {
       return NextResponse.json(
         { error: "Address line 2 is too long." },
@@ -156,6 +166,9 @@ export async function PATCH(
       );
     }
 
+    const line2 =
+      typeof payload.line2 === "string" ? payload.line2.trim() : "";
+
     const plan = db.raw.sql`
       UPDATE "address"
       SET
@@ -163,11 +176,12 @@ export async function PATCH(
         "recipientName" = ${payload.recipientName.trim()},
         "phone" = ${payload.phone.trim()},
         "line1" = ${payload.line1.trim()},
-        "line2" = ${payload.line2?.trim() || ""},
+        "line2" = NULLIF(${line2}, ''),
         "city" = ${payload.city.trim()},
         "state" = ${payload.state.trim()},
         "postalCode" = ${payload.postalCode.trim()},
-        "countryCode" = 'IN'
+        "countryCode" = 'IN',
+        "updatedAt" = NOW()
       WHERE
         "id" = ${addressId}
         AND

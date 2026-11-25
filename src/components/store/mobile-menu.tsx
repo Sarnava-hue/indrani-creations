@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { useCart } from "@/components/store/cart-provider";
+
 type Category = {
   id: number;
   name: string;
@@ -16,6 +18,7 @@ type MobileMenuProps = {
 export function MobileMenu({
   categories,
 }: MobileMenuProps) {
+  const { itemCount } = useCart();
   const [open, setOpen] = useState(false);
   const [collectionsOpen, setCollectionsOpen] =
     useState(false);
@@ -184,9 +187,14 @@ export function MobileMenu({
               <Link
                 href="/cart"
                 onClick={closeMenu}
-                className="block py-4 text-sm uppercase tracking-[0.15em] text-stone-800"
+                className="flex items-center justify-between py-4 text-sm uppercase tracking-[0.15em] text-stone-800"
               >
-                Shopping Bag
+                <span>Shopping Bag</span>
+                {itemCount > 0 ? (
+                  <span className="rounded-full bg-stone-900 px-2 py-0.5 text-[10px] font-medium text-white">
+                    {itemCount}
+                  </span>
+                ) : null}
               </Link>
             </div>
           </nav>

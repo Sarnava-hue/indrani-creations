@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { MobileMenu } from "@/components/store/mobile-menu";
 import AccountButton from "@/components/store/account-button";
+import { CartLinkBadge } from "@/components/store/cart-link-badge";
 import { getActiveCategories } from "@/lib/store/categories";
 
 export async function Header() {
@@ -112,13 +113,7 @@ export async function Header() {
             ♡
           </Link>
 
-          <Link
-            href="/cart"
-            aria-label="Shopping bag"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-stone-700 transition hover:bg-stone-100 hover:text-black"
-          >
-            ♧
-          </Link>
+          <CartLinkBadge />
         </div>
       </div>
     </header>

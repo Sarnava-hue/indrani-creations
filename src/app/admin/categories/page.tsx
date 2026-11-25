@@ -19,6 +19,8 @@ export default function AdminCategoriesPage() {
 
   const [loading, setLoading] = useState(true);
 
+  const [deactivatingId, setDeactivatingId] = useState<number | null>(null);
+
   const [error, setError] = useState<string | null>(null);
 
   async function loadCategories() {
@@ -47,24 +49,40 @@ export default function AdminCategoriesPage() {
   }
 
   async function deactivateCategory(id: number) {
+    if (deactivatingId !== null) {
+      return;
+    }
+
     const confirmed = window.confirm("Deactivate this category?");
 
     if (!confirmed) {
       return;
     }
 
-    const response = await fetch(`/api/admin/categories/${id}`, {
-      method: "DELETE",
-    });
+    try {
+      setDeactivatingId(id);
+      setError(null);
 
-    const data = await response.json();
+      const response = await fetch(`/api/admin/categories/${id}`, {
+        method: "DELETE",
+      });
 
-    if (!response.ok) {
-      window.alert(data.error ?? "Failed to deactivate category");
-      return;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to deactivate category");
+      }
+
+      await loadCategories();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to deactivate category",
+      );
+    } finally {
+      setDeactivatingId(null);
     }
-
-    await loadCategories();
   }
 
   useEffect(() => {
@@ -196,10 +214,13 @@ export default function AdminCategoriesPage() {
                   {category.isActive ? (
                     <button
                       type="button"
-                      onClick={() => deactivateCategory(category.id)}
-                      className="border border-red-200 px-4 py-2 text-xs uppercase tracking-widest text-red-600 transition hover:border-red-400"
+                      disabled={deactivatingId === category.id}
+                      onClick={() => void deactivateCategory(category.id)}
+                      className="border border-red-200 px-4 py-2 text-xs uppercase tracking-widest text-red-600 transition hover:border-red-400 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Deactivate
+                      {deactivatingId === category.id
+                        ? "Deactivating..."
+                        : "Deactivate"}
                     </button>
                   ) : null}
                 </div>

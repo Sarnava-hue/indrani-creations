@@ -39,10 +39,14 @@ const emptyForm: AddressForm = {
   postalCode: "",
 };
 
+const LABEL_OPTIONS = ["Home", "Work", "Other"];
+
 export default function AddressesPage() {
   const router = useRouter();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [form, setForm] = useState<AddressForm>(emptyForm);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -61,7 +65,7 @@ export default function AddressesPage() {
       const data: unknown = await response.json();
 
       if (response.status === 401) {
-        router.replace("/login");
+        router.replace("/login?redirect=/account/addresses");
         return;
       }
 
@@ -103,7 +107,7 @@ export default function AddressesPage() {
         const data: unknown = await response.json();
 
         if (response.status === 401) {
-          router.replace("/login");
+          router.replace("/login?redirect=/account/addresses");
           return;
         }
 
@@ -150,6 +154,36 @@ export default function AddressesPage() {
     }));
   }
 
+  function closeForm() {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(emptyForm);
+    setError("");
+  }
+
+  function openAddForm() {
+    setError("");
+    setEditingId(null);
+    setForm(emptyForm);
+    setShowForm(true);
+  }
+
+  function openEditForm(address: Address) {
+    setError("");
+    setEditingId(address.id);
+    setForm({
+      label: address.label,
+      recipientName: address.recipientName,
+      phone: address.phone,
+      line1: address.line1,
+      line2: address.line2 ?? "",
+      city: address.city,
+      state: address.state,
+      postalCode: address.postalCode,
+    });
+    setShowForm(true);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -159,8 +193,13 @@ export default function AddressesPage() {
       setSaving(true);
       setError("");
 
-      const response = await fetch("/api/account/addresses", {
-        method: "POST",
+      const isEditing = editingId !== null;
+      const endpoint = isEditing
+        ? `/api/account/addresses/${editingId}`
+        : "/api/account/addresses";
+
+      const response = await fetch(endpoint, {
+        method: isEditing ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
@@ -171,7 +210,7 @@ export default function AddressesPage() {
       const data: unknown = await response.json();
 
       if (response.status === 401) {
-        router.replace("/login");
+        router.replace("/login?redirect=/account/addresses");
         return;
       }
 
@@ -188,6 +227,7 @@ export default function AddressesPage() {
       }
 
       setForm(emptyForm);
+      setEditingId(null);
       setShowForm(false);
       await loadAddresses();
     } catch (err) {
@@ -198,6 +238,61 @@ export default function AddressesPage() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete(addressId: number) {
+    if (deletingId !== null || saving) {
+      return;
+    }
+
+    if (!window.confirm("Remove this saved address?")) {
+      return;
+    }
+
+    try {
+      setDeletingId(addressId);
+      setError("");
+
+      const response = await fetch(`/api/account/addresses/${addressId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const data: unknown = await response.json();
+
+      if (response.status === 401) {
+        router.replace("/login?redirect=/account/addresses");
+        return;
+      }
+
+      if (!response.ok) {
+        const message =
+          typeof data === "object" &&
+          data !== null &&
+          "error" in data &&
+          typeof data.error === "string"
+            ? data.error
+            : "Unable to remove address.";
+
+        throw new Error(message);
+      }
+
+      if (editingId === addressId) {
+        setEditingId(null);
+        setForm(emptyForm);
+        setShowForm(false);
+      }
+
+      await loadAddresses();
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        err instanceof Error ? err.message : "Unable to remove your address.",
+      );
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -230,9 +325,11 @@ export default function AddressesPage() {
             <button
               type="button"
               onClick={() => {
-                setError("");
-                setForm(emptyForm);
-                setShowForm((current) => !current);
+                if (showForm) {
+                  closeForm();
+                } else {
+                  openAddForm();
+                }
               }}
               className="rounded-full bg-[#1d1a17] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#332d28]"
             >
@@ -249,7 +346,9 @@ export default function AddressesPage() {
 
         {showForm && (
           <section className="mb-8 rounded-3xl border border-[#ded7ce] bg-white p-6 shadow-sm sm:p-8">
-            <h2 className="font-serif text-2xl">Add a new address</h2>
+            <h2 className="font-serif text-2xl">
+              {editingId !== null ? "Edit address" : "Add a new address"}
+            </h2>
 
             <form
               onSubmit={handleSubmit}
@@ -262,9 +361,14 @@ export default function AddressesPage() {
                   onChange={(event) => updateField("label", event.target.value)}
                   className="mt-2 w-full rounded-xl border border-[#d9d1c8] bg-white px-4 py-3 text-sm outline-none focus:border-[#8b5e3c]"
                 >
-                  <option>Home</option>
-                  <option>Work</option>
-                  <option>Other</option>
+                  {LABEL_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                  {!LABEL_OPTIONS.includes(form.label) && (
+                    <option value={form.label}>{form.label}</option>
+                  )}
                 </select>
               </div>
 
@@ -354,13 +458,28 @@ export default function AddressesPage() {
                 />
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="flex flex-col gap-3 sm:col-span-2 sm:flex-row">
                 <button
                   type="submit"
                   disabled={saving}
-                  className="w-full rounded-full bg-[#8b5e3c] px-6 py-3.5 text-sm font-medium text-white transition hover:bg-[#70492f] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex-1 rounded-full bg-[#8b5e3c] px-6 py-3.5 text-sm font-medium text-white transition hover:bg-[#70492f] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {saving ? "Saving address..." : "Save address"}
+                  {saving
+                    ? editingId !== null
+                      ? "Updating address..."
+                      : "Saving address..."
+                    : editingId !== null
+                      ? "Update address"
+                      : "Save address"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={closeForm}
+                  className="rounded-full border border-[#d9d1c8] px-6 py-3.5 text-sm font-medium text-[#756d65] transition hover:border-[#1d1a17] hover:text-[#1d1a17] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancel
                 </button>
               </div>
             </form>
@@ -383,7 +502,7 @@ export default function AddressesPage() {
             {!showForm && (
               <button
                 type="button"
-                onClick={() => setShowForm(true)}
+                onClick={openAddForm}
                 className="mt-6 rounded-full bg-[#1d1a17] px-6 py-3 text-sm font-medium text-white"
               >
                 Add your first address
@@ -392,38 +511,66 @@ export default function AddressesPage() {
           </section>
         ) : (
           <div className="grid gap-5 md:grid-cols-2">
-            {addresses.map((address) => (
-              <article
-                key={address.id}
-                className="rounded-3xl border border-[#ded7ce] bg-white p-6 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-4">
+            {addresses.map((address) => {
+              const isDeleting = deletingId === address.id;
+
+              return (
+                <article
+                  key={address.id}
+                  className="flex flex-col justify-between rounded-3xl border border-[#ded7ce] bg-white p-6 shadow-sm"
+                >
                   <div>
-                    <span className="inline-flex rounded-full bg-[#f1e8df] px-3 py-1 text-xs font-medium text-[#8b5e3c]">
-                      {address.label}
-                    </span>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <span className="inline-flex rounded-full bg-[#f1e8df] px-3 py-1 text-xs font-medium text-[#8b5e3c]">
+                          {address.label}
+                        </span>
 
-                    <h2 className="mt-4 font-serif text-xl">
-                      {address.recipientName}
-                    </h2>
+                        <h2 className="mt-4 font-serif text-xl">
+                          {address.recipientName}
+                        </h2>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-3 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(address)}
+                          disabled={isDeleting}
+                          aria-label={`Edit ${address.label} address`}
+                          className="font-medium text-[#8b5e3c] underline-offset-4 transition hover:text-[#1d1a17] hover:underline disabled:opacity-50"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => void handleDelete(address.id)}
+                          disabled={isDeleting}
+                          aria-label={`Delete ${address.label} address`}
+                          className="font-medium text-red-700 underline-offset-4 transition hover:text-red-900 hover:underline disabled:opacity-50"
+                        >
+                          {isDeleting ? "Removing..." : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-1 text-sm leading-6 text-[#756d65]">
+                      <p>{address.line1}</p>
+
+                      {address.line2 && <p>{address.line2}</p>}
+
+                      <p>
+                        {address.city}, {address.state} {address.postalCode}
+                      </p>
+
+                      <p>{address.countryCode}</p>
+
+                      <p className="pt-2 text-[#1d1a17]">{address.phone}</p>
+                    </div>
                   </div>
-                </div>
-
-                <div className="mt-4 space-y-1 text-sm leading-6 text-[#756d65]">
-                  <p>{address.line1}</p>
-
-                  {address.line2 && <p>{address.line2}</p>}
-
-                  <p>
-                    {address.city}, {address.state} {address.postalCode}
-                  </p>
-
-                  <p>{address.countryCode}</p>
-
-                  <p className="pt-2 text-[#1d1a17]">{address.phone}</p>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </div>

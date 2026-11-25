@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -99,7 +99,19 @@ function isOrderResponse(data: unknown): data is {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, subtotalPaise, clearCart } = useCart();
+  const {
+    items,
+    subtotalPaise,
+    hasUnavailableItems,
+    syncing,
+    notices,
+    clearCart,
+    syncCart,
+  } = useCart();
+
+  useEffect(() => {
+    void syncCart();
+  }, [syncCart]);
 
   const [form, setForm] = useState<CheckoutForm>(initialForm);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
@@ -148,6 +160,13 @@ export default function CheckoutPage() {
 
     if (items.length === 0) {
       setError("Your bag is empty.");
+      return;
+    }
+
+    if (hasUnavailableItems) {
+      setError(
+        "One or more items in your bag are out of stock or unavailable. Return to your bag to remove them before ordering.",
+      );
       return;
     }
 
@@ -337,6 +356,19 @@ export default function CheckoutPage() {
       </section>
 
       <section className="mx-auto max-w-7xl px-6 py-12 lg:px-8 lg:py-20">
+        {!paymentData && notices.length > 0 && (
+          <div
+            role="status"
+            className="mb-8 border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+          >
+            <ul className="space-y-1">
+              {notices.map((notice) => (
+                <li key={notice}>{notice}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <form
           onSubmit={handleSubmit}
           className="grid gap-12 lg:grid-cols-[1fr_400px]"
@@ -621,13 +653,35 @@ export default function CheckoutPage() {
               </div>
             )}
 
+            {!paymentData && hasUnavailableItems && (
+              <div
+                role="alert"
+                className="border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-800"
+              >
+                <p>
+                  One or more items in your bag are currently out of stock or
+                  unavailable.
+                </p>
+                <Link
+                  href="/cart"
+                  className="mt-2 inline-block text-xs uppercase tracking-[0.15em] underline"
+                >
+                  Review your bag
+                </Link>
+              </div>
+            )}
+
             {!paymentData && (
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || syncing || hasUnavailableItems}
                 className="w-full bg-neutral-900 px-8 py-5 text-xs uppercase tracking-[0.25em] text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:bg-neutral-400"
               >
-                {submitting ? "Creating order..." : "Place order"}
+                {submitting
+                  ? "Creating order..."
+                  : syncing
+                    ? "Verifying bag availability..."
+                    : "Place order"}
               </button>
             )}
 

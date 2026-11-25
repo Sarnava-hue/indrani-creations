@@ -9,6 +9,35 @@ type RouteContext = {
   }>;
 };
 
+async function getDeactivationBlocker(
+  categoryId: number,
+): Promise<string | null> {
+  const [activeChild, activeProduct] = await Promise.all([
+    db.orm.public.Category.where({
+      parentId: categoryId,
+      isActive: true,
+    })
+      .select("id")
+      .first(),
+    db.orm.public.Product.where({
+      categoryId,
+      isActive: true,
+    })
+      .select("id")
+      .first(),
+  ]);
+
+  if (activeChild) {
+    return "Cannot deactivate a category that has active child categories";
+  }
+
+  if (activeProduct) {
+    return "Cannot deactivate a category that has active products. Reassign or deactivate those products first.";
+  }
+
+  return null;
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { response } = await requireAdminApi();
@@ -211,6 +240,17 @@ export async function PATCH(request: Request, context: RouteContext) {
       }
     }
 
+    if (existing.isActive && !isActive) {
+      const blocker = await getDeactivationBlocker(categoryId);
+
+      if (blocker) {
+        return NextResponse.json(
+          { error: blocker },
+          { status: 409 },
+        );
+      }
+    }
+
     const plan = db.sql.public.category
       .update({
         name,
@@ -287,14 +327,12 @@ export async function DELETE(_request: Request, context: RouteContext) {
       );
     }
 
-    const child = await db.orm.public.Category.where({ parentId: categoryId })
-      .select("id")
-      .first();
+    const blocker = await getDeactivationBlocker(categoryId);
 
-    if (child) {
+    if (blocker) {
       return NextResponse.json(
         {
-          error: "Cannot deactivate a category that has child categories",
+          error: blocker,
         },
         { status: 409 },
       );

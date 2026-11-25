@@ -1,11 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { formatINR } from "@/lib/utils/currency";
 import { useCart } from "@/components/store/cart-provider";
+
+type WishlistProductImage = {
+  id: number;
+  url: string;
+  altText: string | null;
+  sortOrder: number;
+  isPrimary: boolean;
+};
 
 type WishlistProduct = {
   id: number;
@@ -21,6 +30,8 @@ type WishlistProduct = {
   pattern: string | null;
   isOneOfOne: boolean;
   isFeatured: boolean;
+  availableQuantity?: number;
+  primaryImage: WishlistProductImage | null;
 };
 
 type WishlistItem = {
@@ -59,7 +70,7 @@ export default function WishlistPage() {
         const data: unknown = await response.json();
 
         if (response.status === 401) {
-          router.replace("/login");
+          router.replace("/login?redirect=/account/wishlist");
           return;
         }
 
@@ -122,7 +133,7 @@ export default function WishlistPage() {
       const data: unknown = await response.json();
 
       if (response.status === 401) {
-        router.replace("/login");
+        router.replace("/login?redirect=/account/wishlist");
         return;
       }
 
@@ -157,6 +168,18 @@ export default function WishlistPage() {
       return;
     }
 
+    const available =
+      item.product.availableQuantity ??
+      (item.product.isOneOfOne ? 1 : 99);
+
+    const maxQuantity = item.product.isOneOfOne
+      ? Math.min(1, available)
+      : available;
+
+    if (maxQuantity <= 0) {
+      return;
+    }
+
     try {
       setAddingId(item.product.id);
 
@@ -166,8 +189,9 @@ export default function WishlistPage() {
         slug: item.product.slug,
         sku: item.product.sku,
         pricePaise: item.product.pricePaise,
+        imageUrl: item.product.primaryImage?.url,
         quantity: 1,
-        maxQuantity: item.product.isOneOfOne ? 1 : 99,
+        maxQuantity,
         isOneOfOne: item.product.isOneOfOne,
       });
     } finally {
@@ -244,6 +268,10 @@ export default function WishlistPage() {
 
               const removing = removingId === product.id;
 
+              const soldOut =
+                product.availableQuantity !== undefined &&
+                product.availableQuantity <= 0;
+
               return (
                 <article
                   key={item.wishlistId}
@@ -251,11 +279,21 @@ export default function WishlistPage() {
                 >
                   <Link href={`/products/${product.slug}`} className="block">
                     <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-[#e8dfd4] via-[#d8cabc] to-[#b9a898]">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="font-serif text-lg text-[#756d65]/50">
-                          Indrani Creations
-                        </span>
-                      </div>
+                      {product.primaryImage ? (
+                        <Image
+                          src={product.primaryImage.url}
+                          alt={product.primaryImage.altText ?? product.name}
+                          fill
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="font-serif text-lg text-[#756d65]/50">
+                            Indrani Creations
+                          </span>
+                        </div>
+                      )}
 
                       {product.isOneOfOne && (
                         <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[10px] uppercase tracking-[0.15em] text-[#5d5148]">
@@ -308,10 +346,14 @@ export default function WishlistPage() {
                     <button
                       type="button"
                       onClick={() => addToBag(item)}
-                      disabled={adding}
+                      disabled={adding || soldOut}
                       className="mt-5 w-full rounded-full bg-[#1d1a17] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#332d28] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {adding ? "Added to bag" : "Add to bag"}
+                      {soldOut
+                        ? "Sold out"
+                        : adding
+                          ? "Added to bag"
+                          : "Add to bag"}
                     </button>
                   </div>
                 </article>

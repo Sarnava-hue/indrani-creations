@@ -82,8 +82,8 @@ export async function GET(
 
     const order = orders[0];
 
-    const items =
-      await db.orm.public.OrderItem
+    const [items, shipment] = await Promise.all([
+      db.orm.public.OrderItem
         .where({
           orderId: order.id,
         })
@@ -95,7 +95,21 @@ export async function GET(
           "quantity",
           "totalPaise",
         )
-        .all();
+        .all(),
+      db.orm.public.Shipment
+        .where({
+          orderId: order.id,
+        })
+        .select(
+          "provider",
+          "trackingNumber",
+          "trackingUrl",
+          "status",
+          "shippedAt",
+          "deliveredAt",
+        )
+        .first(),
+    ]);
 
     return NextResponse.json({
       order: {
@@ -157,6 +171,8 @@ export async function GET(
           countryCode:
             order.shippingCountryCode,
         },
+
+        shipment,
 
         items,
       },

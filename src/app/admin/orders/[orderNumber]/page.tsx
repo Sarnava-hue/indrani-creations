@@ -196,6 +196,9 @@ export default function AdminOrderDetailPage({
   const [verifyingPayment, setVerifyingPayment] =
     useState(false);
 
+  const [savingShipment, setSavingShipment] =
+    useState(false);
+
   const [error, setError] =
     useState<string | null>(null);
 
@@ -207,6 +210,24 @@ export default function AdminOrderDetailPage({
 
   const [shippingStatus, setShippingStatus] =
     useState<ShippingStatus>("PENDING");
+
+  const [shipmentProvider, setShipmentProvider] =
+    useState("");
+
+  const [trackingNumber, setTrackingNumber] =
+    useState("");
+
+  const [trackingUrl, setTrackingUrl] =
+    useState("");
+
+  function syncOrderState(result: OrderResponse) {
+    setData(result);
+    setStatus(result.order.status);
+    setShippingStatus(result.order.shippingStatus);
+    setShipmentProvider(result.shipment?.provider ?? "");
+    setTrackingNumber(result.shipment?.trackingNumber ?? "");
+    setTrackingUrl(result.shipment?.trackingUrl ?? "");
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -231,9 +252,10 @@ export default function AdminOrderDetailPage({
         if (!cancelled) {
           setData(result);
           setStatus(result.order.status);
-          setShippingStatus(
-            result.order.shippingStatus,
-          );
+          setShippingStatus(result.order.shippingStatus);
+          setShipmentProvider(result.shipment?.provider ?? "");
+          setTrackingNumber(result.shipment?.trackingNumber ?? "");
+          setTrackingUrl(result.shipment?.trackingUrl ?? "");
         }
       } catch (error) {
         if (!cancelled) {
@@ -295,9 +317,7 @@ export default function AdminOrderDetailPage({
 
       const refreshed = await fetchAdminOrder(orderNumber);
 
-      setData(refreshed);
-      setStatus(refreshed.order.status);
-      setShippingStatus(refreshed.order.shippingStatus);
+      syncOrderState(refreshed);
       setStatusMessage("Order status updated.");
     } catch (error) {
       setError(
@@ -307,6 +327,54 @@ export default function AdminOrderDetailPage({
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function saveShipmentTracking() {
+    if (!orderNumber || savingShipment) {
+      return;
+    }
+
+    try {
+      setSavingShipment(true);
+      setError(null);
+      setStatusMessage(null);
+
+      const response = await fetch(
+        `/api/admin/orders/${encodeURIComponent(orderNumber)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            shipment: {
+              provider: shipmentProvider.trim() || null,
+              trackingNumber: trackingNumber.trim() || null,
+              trackingUrl: trackingUrl.trim() || null,
+            },
+          }),
+        },
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Failed to update shipment details");
+      }
+
+      const refreshed = await fetchAdminOrder(orderNumber);
+
+      syncOrderState(refreshed);
+      setStatusMessage("Shipment tracking details saved.");
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to update shipment details",
+      );
+    } finally {
+      setSavingShipment(false);
     }
   }
 
@@ -352,9 +420,7 @@ export default function AdminOrderDetailPage({
 
       const refreshed = await fetchAdminOrder(orderNumber);
 
-      setData(refreshed);
-      setStatus(refreshed.order.status);
-      setShippingStatus(refreshed.order.shippingStatus);
+      syncOrderState(refreshed);
       setStatusMessage("Payment verified and marked as PAID.");
     } catch (error) {
       setError(
@@ -834,60 +900,120 @@ export default function AdminOrderDetailPage({
 
         {/* Shipment */}
         <section className="border border-neutral-200 bg-white p-6">
-          <h2 className="text-lg font-medium text-neutral-900">
-            Shipment
-          </h2>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-medium text-neutral-900">
+                Shipment & tracking
+              </h2>
 
-          {shipment ? (
-            <div className="mt-5 space-y-4 text-sm">
-              <div className="flex justify-between gap-4">
-                <span className="text-neutral-500">
-                  Provider
-                </span>
+              <p className="mt-1 text-xs text-neutral-500">
+                Status: {label(shipment?.status ?? order.shippingStatus)}
+              </p>
+            </div>
 
-                <span className="text-neutral-900">
-                  {shipment.provider ??
-                    "Not assigned"}
-                </span>
-              </div>
+            {shipment?.trackingUrl ? (
+              <a
+                href={shipment.trackingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs uppercase tracking-widest text-neutral-600 underline hover:text-black"
+              >
+                Open tracking
+              </a>
+            ) : null}
+          </div>
 
-              <div className="flex justify-between gap-4">
-                <span className="text-neutral-500">
-                  Status
-                </span>
-
-                <span className="text-neutral-900">
-                  {label(shipment.status)}
-                </span>
-              </div>
-
-              <div className="flex justify-between gap-4">
-                <span className="text-neutral-500">
-                  Tracking
-                </span>
-
-                <span className="text-right text-neutral-900">
-                  {shipment.trackingNumber ??
-                    "Not assigned"}
-                </span>
-              </div>
-
-              {shipment.trackingUrl ? (
-                <a
-                  href={shipment.trackingUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-block text-xs uppercase tracking-widest text-neutral-500 underline hover:text-black"
-                >
-                  Open tracking
-                </a>
+          {shipment?.shippedAt || shipment?.deliveredAt ? (
+            <div className="mt-4 space-y-1 border-b border-neutral-100 pb-4 text-xs text-neutral-500">
+              {shipment.shippedAt ? (
+                <p>Shipped: {formatDate(shipment.shippedAt)}</p>
+              ) : null}
+              {shipment.deliveredAt ? (
+                <p>Delivered: {formatDate(shipment.deliveredAt)}</p>
               ) : null}
             </div>
-          ) : (
-            <p className="mt-5 text-sm text-neutral-500">
-              No shipment created yet.
-            </p>
-          )}
+          ) : null}
+
+          <div className="mt-5 space-y-4">
+            <div>
+              <label
+                htmlFor="shipment-provider"
+                className="admin-label"
+              >
+                Courier / provider
+              </label>
+
+              <input
+                id="shipment-provider"
+                type="text"
+                maxLength={100}
+                value={shipmentProvider}
+                onChange={(event) => setShipmentProvider(event.target.value)}
+                disabled={order.status === "CANCELLED" || savingShipment}
+                placeholder="e.g. Blue Dart, Delhivery, India Post"
+                className="admin-input"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="shipment-tracking-number"
+                className="admin-label"
+              >
+                Tracking number
+              </label>
+
+              <input
+                id="shipment-tracking-number"
+                type="text"
+                maxLength={100}
+                value={trackingNumber}
+                onChange={(event) => setTrackingNumber(event.target.value)}
+                disabled={order.status === "CANCELLED" || savingShipment}
+                placeholder="AWB or consignment number"
+                className="admin-input font-mono"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="shipment-tracking-url"
+                className="admin-label"
+              >
+                Tracking URL
+              </label>
+
+              <input
+                id="shipment-tracking-url"
+                type="url"
+                maxLength={500}
+                value={trackingUrl}
+                onChange={(event) => setTrackingUrl(event.target.value)}
+                disabled={order.status === "CANCELLED" || savingShipment}
+                placeholder="https://..."
+                className="admin-input"
+              />
+            </div>
+
+            {order.status === "CANCELLED" ? (
+              <p className="text-xs text-neutral-500">
+                Shipment tracking cannot be edited on cancelled orders.
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void saveShipmentTracking()}
+                disabled={savingShipment}
+                className="w-full border border-neutral-300 px-5 py-3 text-xs uppercase tracking-widest text-neutral-900 transition hover:border-black disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {savingShipment
+                  ? "Saving..."
+                  : shipment
+                    ? "Update tracking details"
+                    : "Save tracking details"}
+              </button>
+            )}
+          </div>
         </section>
       </div>
 

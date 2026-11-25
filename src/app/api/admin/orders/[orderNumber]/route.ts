@@ -14,6 +14,65 @@ type RouteContext = {
   }>;
 };
 
+type ShipmentInput = {
+  provider?: string | null;
+  trackingNumber?: string | null;
+  trackingUrl?: string | null;
+};
+
+function parseNullableText(
+  value: unknown,
+  fieldLabel: string,
+  maxLength: number,
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  if (value === undefined || value === null) {
+    return { ok: true, value: null };
+  }
+
+  if (typeof value !== "string") {
+    return { ok: false, error: `${fieldLabel} must be text.` };
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed.length > maxLength) {
+    return {
+      ok: false,
+      error: `${fieldLabel} must be ${maxLength} characters or fewer.`,
+    };
+  }
+
+  return { ok: true, value: trimmed || null };
+}
+
+function parseNullableHttpUrl(
+  value: unknown,
+): { ok: true; value: string | null } | { ok: false; error: string } {
+  const parsed = parseNullableText(value, "Tracking URL", 500);
+
+  if (!parsed.ok || parsed.value === null) {
+    return parsed;
+  }
+
+  try {
+    const url = new URL(parsed.value);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return {
+        ok: false,
+        error: "Tracking URL must start with http:// or https://.",
+      };
+    }
+
+    return { ok: true, value: parsed.value };
+  } catch {
+    return {
+      ok: false,
+      error: "Please enter a valid tracking URL.",
+    };
+  }
+}
+
 export async function GET(_request: Request, context: RouteContext) {
   try {
     const { response } = await requireAdminApi();
@@ -162,6 +221,59 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     const body = await request.json();
 
+    if (typeof body !== "object" || body === null) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
+    }
+
+    let shipmentUpdate:
+      | {
+          provider: string | null;
+          trackingNumber: string | null;
+          trackingUrl: string | null;
+        }
+      | null = null;
+
+    if (body.shipment !== undefined) {
+      if (typeof body.shipment !== "object" || body.shipment === null) {
+        return NextResponse.json(
+          { error: "Invalid shipment payload" },
+          { status: 400 },
+        );
+      }
+
+      const rawShipment = body.shipment as ShipmentInput;
+      const provider = parseNullableText(rawShipment.provider, "Courier / provider", 100);
+
+      if (!provider.ok) {
+        return NextResponse.json({ error: provider.error }, { status: 400 });
+      }
+
+      const trackingNumber = parseNullableText(
+        rawShipment.trackingNumber,
+        "Tracking number",
+        100,
+      );
+
+      if (!trackingNumber.ok) {
+        return NextResponse.json({ error: trackingNumber.error }, { status: 400 });
+      }
+
+      const trackingUrl = parseNullableHttpUrl(rawShipment.trackingUrl);
+
+      if (!trackingUrl.ok) {
+        return NextResponse.json({ error: trackingUrl.error }, { status: 400 });
+      }
+
+      shipmentUpdate = {
+        provider: provider.value,
+        trackingNumber: trackingNumber.value,
+        trackingUrl: trackingUrl.value,
+      };
+    }
+
     const allowedOrderStatuses = [
       "PENDING",
       "CONFIRMED",
@@ -291,6 +403,15 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     if (requestedStatus === "CANCELLED" && currentStatus !== "CANCELLED") {
+      if (shipmentUpdate) {
+        return NextResponse.json(
+          {
+            error: "Cannot update shipment tracking when cancelling an order.",
+          },
+          { status: 409 },
+        );
+      }
+
       const result = await cancelOrderAndReleaseInventory(orderNumber);
 
       if (!result.cancelled) {
@@ -306,6 +427,15 @@ export async function PATCH(request: Request, context: RouteContext) {
         success: true,
         message: "Order cancelled and inventory released.",
       });
+    }
+
+    if (shipmentUpdate && requestedStatus === "CANCELLED") {
+      return NextResponse.json(
+        {
+          error: "Cannot update shipment details for a cancelled order.",
+        },
+        { status: 409 },
+      );
     }
 
     if (requestedStatus === "SHIPPED" && currentStatus !== "SHIPPED") {
@@ -329,33 +459,129 @@ export async function PATCH(request: Request, context: RouteContext) {
         );
       }
 
+      if (shipmentUpdate) {
+        const plan = db.sql.public.shipment
+          .update(shipmentUpdate)
+          .where((fields, fns) => fns.eq(fields.orderId, order.id))
+          .build();
+
+        await db.runtime().execute(plan);
+      }
+
       return NextResponse.json({
         success: true,
         message: "Order shipped and inventory committed.",
       });
     }
 
-    const plan = db.sql.public.order
-      .update({
-        status: nextStatus,
-        shippingStatus: nextShippingStatus,
+    const result = await db.transaction(async (tx) => {
+      const orderPlan = tx.sql.public.order
+        .update({
+          status: nextStatus,
+          shippingStatus: nextShippingStatus,
+        })
+        .where((fields, fns) => fns.eq(fields.id, order.id))
+        .returning(
+          "id",
+          "orderNumber",
+          "status",
+          "paymentStatus",
+          "shippingStatus",
+          "updatedAt",
+        )
+        .build();
+
+      const [updatedOrder] = await tx.query(orderPlan);
+
+      let updatedShipment = null;
+      const existingShipment = await tx.orm.public.Shipment.where({
+        orderId: order.id,
       })
-      .where((fields, fns) => fns.eq(fields.id, order.id))
-      .returning(
-        "id",
-        "orderNumber",
-        "status",
-        "paymentStatus",
-        "shippingStatus",
-        "updatedAt",
-      )
-      .build();
+        .select("id", "shippedAt", "deliveredAt")
+        .first();
 
-    const [updatedOrder] = await db.runtime().query(plan);
+      const nowIso = new Date().toISOString();
+      const isShippedState = ["SHIPPED", "IN_TRANSIT", "DELIVERED"].includes(
+        nextShippingStatus,
+      );
+      const isDeliveredState = nextShippingStatus === "DELIVERED";
 
-    return NextResponse.json({
-      order: updatedOrder,
+      if (shipmentUpdate) {
+        if (existingShipment) {
+          const shipmentPlan = tx.sql.public.shipment
+            .update({
+              ...shipmentUpdate,
+              status: nextShippingStatus,
+              shippedAt: isShippedState
+                ? (existingShipment.shippedAt ?? nowIso)
+                : existingShipment.shippedAt,
+              deliveredAt: isDeliveredState
+                ? (existingShipment.deliveredAt ?? nowIso)
+                : existingShipment.deliveredAt,
+            })
+            .where((fields, fns) => fns.eq(fields.id, existingShipment.id))
+            .returning(
+              "id",
+              "provider",
+              "providerShipmentId",
+              "trackingNumber",
+              "trackingUrl",
+              "status",
+              "shippedAt",
+              "deliveredAt",
+              "createdAt",
+              "updatedAt",
+            )
+            .build();
+
+          const [saved] = await tx.query(shipmentPlan);
+          updatedShipment = saved ?? null;
+        } else {
+          updatedShipment = await tx.orm.public.Shipment.create({
+            orderId: order.id,
+            ...shipmentUpdate,
+            status: nextShippingStatus,
+            shippedAt: isShippedState ? nowIso : null,
+            deliveredAt: isDeliveredState ? nowIso : null,
+          });
+        }
+      } else if (existingShipment) {
+        const shipmentPlan = tx.sql.public.shipment
+          .update({
+            status: nextShippingStatus,
+            shippedAt: isShippedState
+              ? (existingShipment.shippedAt ?? nowIso)
+              : existingShipment.shippedAt,
+            deliveredAt: isDeliveredState
+              ? (existingShipment.deliveredAt ?? nowIso)
+              : existingShipment.deliveredAt,
+          })
+          .where((fields, fns) => fns.eq(fields.id, existingShipment.id))
+          .returning(
+            "id",
+            "provider",
+            "providerShipmentId",
+            "trackingNumber",
+            "trackingUrl",
+            "status",
+            "shippedAt",
+            "deliveredAt",
+            "createdAt",
+            "updatedAt",
+          )
+          .build();
+
+        const [saved] = await tx.query(shipmentPlan);
+        updatedShipment = saved ?? null;
+      }
+
+      return {
+        order: updatedOrder,
+        shipment: updatedShipment,
+      };
     });
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Failed to update admin order:", error);
 

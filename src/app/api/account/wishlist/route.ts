@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+import { getAvailableQuantity } from "@/lib/inventory/status";
 
 type WishlistProductInput = {
   productId: number;
@@ -33,50 +34,106 @@ export async function GET() {
         )
         .all();
 
-    const products = await Promise.all(
-      wishlistItems.map(async (item) => {
-        const matches =
-          await db.orm.public.Product
-            .where({
-              id: item.productId,
-              isActive: true,
-            })
-            .select(
-              "id",
-              "name",
-              "slug",
-              "sku",
-              "shortDescription",
-              "pricePaise",
-              "compareAtPricePaise",
-              "fabric",
-              "color",
-              "occasion",
-              "pattern",
-              "isOneOfOne",
-              "isFeatured",
-            )
-            .all();
+    if (wishlistItems.length === 0) {
+      return NextResponse.json({
+        wishlist: [],
+      });
+    }
 
-        if (matches.length === 0) {
-          return null;
-        }
+    const productIds = [
+      ...new Set(wishlistItems.map((item) => item.productId)),
+    ];
 
-        return {
-          wishlistId: item.id,
-          createdAt: item.createdAt,
-          product: matches[0],
-        };
-      }),
+    const [products, images, inventories] = await Promise.all([
+      db.orm.public.Product.where((product) => product.id.in(productIds))
+        .where({ isActive: true })
+        .select(
+          "id",
+          "name",
+          "slug",
+          "sku",
+          "shortDescription",
+          "pricePaise",
+          "compareAtPricePaise",
+          "fabric",
+          "color",
+          "occasion",
+          "pattern",
+          "isOneOfOne",
+          "isFeatured",
+        )
+        .all(),
+      db.orm.public.ProductImage.where((image) =>
+        image.productId.in(productIds),
+      )
+        .select("id", "productId", "url", "altText", "sortOrder", "isPrimary")
+        .orderBy((image) => image.sortOrder.asc())
+        .all(),
+      db.orm.public.Inventory.where((inventory) =>
+        inventory.productId.in(productIds),
+      )
+        .select("productId", "quantity", "reserved")
+        .all(),
+    ]);
+
+    const productMap = new Map(
+      products.map((product) => [product.id, product]),
     );
 
+    const primaryImageMap = new Map<
+      number,
+      {
+        id: number;
+        url: string;
+        altText: string | null;
+        sortOrder: number;
+        isPrimary: boolean;
+      }
+    >();
+
+    for (const image of images) {
+      const existing = primaryImageMap.get(image.productId);
+
+      if (!existing || (image.isPrimary && !existing.isPrimary)) {
+        primaryImageMap.set(image.productId, {
+          id: image.id,
+          url: image.url,
+          altText: image.altText,
+          sortOrder: image.sortOrder,
+          isPrimary: image.isPrimary,
+        });
+      }
+    }
+
+    const inventoryMap = new Map(
+      inventories.map((record) => [
+        record.productId,
+        getAvailableQuantity(record.quantity, record.reserved),
+      ]),
+    );
+
+    const populatedWishlist = wishlistItems.flatMap((item) => {
+      const product = productMap.get(item.productId);
+
+      if (!product) {
+        return [];
+      }
+
+      return [
+        {
+          wishlistId: item.id,
+          createdAt: item.createdAt,
+          product: {
+            ...product,
+            availableQuantity: inventoryMap.get(product.id) ?? 0,
+            primaryImage: primaryImageMap.get(product.id) ?? null,
+          },
+        },
+      ];
+    });
+
     return NextResponse.json({
-      wishlist: products.filter(
-        (
-          item,
-        ): item is NonNullable<typeof item> =>
-          item !== null,
-      ),
+      wishlist: populatedWishlist,
     });
   } catch (error) {
     console.error(

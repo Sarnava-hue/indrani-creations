@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 
 type InventoryRecord = {
   id: number;
   name: string;
   slug: string;
   sku: string;
+  isActive: boolean;
   inventoryId: number | null;
   quantity: number;
   reserved: number;
@@ -16,6 +18,18 @@ type InventoryRecord = {
     | "LOW_STOCK"
     | "IN_STOCK";
 };
+
+type VisibilityFilter = "all" | "active" | "inactive";
+
+function buildDraftQuantities(rows: InventoryRecord[]): Record<number, string> {
+  const drafts: Record<number, string> = {};
+
+  for (const row of rows) {
+    drafts[row.id] = String(row.quantity);
+  }
+
+  return drafts;
+}
 
 function statusLabel(
   status: InventoryRecord["status"],
@@ -36,6 +50,12 @@ export default function AdminInventoryPage() {
   const [items, setItems] =
     useState<InventoryRecord[]>([]);
 
+  const [draftQuantities, setDraftQuantities] =
+    useState<Record<number, string>>({});
+
+  const [visibilityFilter, setVisibilityFilter] =
+    useState<VisibilityFilter>("all");
+
   const [loading, setLoading] =
     useState(true);
 
@@ -43,6 +63,9 @@ export default function AdminInventoryPage() {
     useState<number | null>(null);
 
   const [error, setError] =
+    useState<string | null>(null);
+
+  const [statusMessage, setStatusMessage] =
     useState<string | null>(null);
 
   async function loadInventory() {
@@ -67,7 +90,9 @@ export default function AdminInventoryPage() {
         );
       }
 
-      setItems(data.inventory);
+      const loaded = data.inventory as InventoryRecord[];
+      setItems(loaded);
+      setDraftQuantities(buildDraftQuantities(loaded));
     } catch (error) {
       setError(
         error instanceof Error
@@ -79,16 +104,38 @@ export default function AdminInventoryPage() {
     }
   }
 
-  async function updateQuantity(
-    productId: number,
-    quantity: number,
-  ) {
+  async function submitRow(item: InventoryRecord) {
+    const rawValue = (draftQuantities[item.id] ?? "").trim();
+
+    if (!rawValue) {
+      setStatusMessage(null);
+      setError(`Please enter a quantity for ${item.name}.`);
+      return;
+    }
+
+    const quantity = Number(rawValue);
+
+    if (!Number.isInteger(quantity) || quantity < 0) {
+      setStatusMessage(null);
+      setError(`Quantity for ${item.name} must be a non-negative whole number.`);
+      return;
+    }
+
+    if (quantity < item.reserved) {
+      setStatusMessage(null);
+      setError(
+        `Quantity for ${item.name} cannot be lower than reserved stock (${item.reserved}).`,
+      );
+      return;
+    }
+
     try {
-      setSavingId(productId);
+      setSavingId(item.id);
       setError(null);
+      setStatusMessage(null);
 
       const response = await fetch(
-        `/api/admin/inventory/${productId}`,
+        `/api/admin/inventory/${item.id}`,
         {
           method: "PATCH",
           headers: {
@@ -112,6 +159,7 @@ export default function AdminInventoryPage() {
       }
 
       await loadInventory();
+      setStatusMessage(`Updated stock for ${item.name} to ${quantity}.`);
     } catch (error) {
       setError(
         error instanceof Error
@@ -147,7 +195,9 @@ export default function AdminInventoryPage() {
         }
 
         if (!cancelled) {
-          setItems(data.inventory);
+          const loaded = data.inventory as InventoryRecord[];
+          setItems(loaded);
+          setDraftQuantities(buildDraftQuantities(loaded));
         }
       } catch (error) {
         if (!cancelled) {
@@ -171,25 +221,93 @@ export default function AdminInventoryPage() {
     };
   }, []);
 
+  const counts = useMemo(() => {
+    let active = 0;
+    let inactive = 0;
+
+    for (const item of items) {
+      if (item.isActive) {
+        active += 1;
+      } else {
+        inactive += 1;
+      }
+    }
+
+    return {
+      all: items.length,
+      active,
+      inactive,
+    };
+  }, [items]);
+
+  const visibleItems = useMemo(() => {
+    if (visibilityFilter === "active") {
+      return items.filter((item) => item.isActive);
+    }
+
+    if (visibilityFilter === "inactive") {
+      return items.filter((item) => !item.isActive);
+    }
+
+    return items;
+  }, [items, visibilityFilter]);
+
   return (
     <div className="space-y-8">
-      <div>
-        <p className="text-xs uppercase tracking-widest text-neutral-400">
-          Store management
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-neutral-400">
+            Store management
+          </p>
 
-        <h1 className="mt-2 text-3xl font-medium text-neutral-900">
-          Inventory
-        </h1>
+          <h1 className="mt-2 text-3xl font-medium text-neutral-900">
+            Inventory
+          </h1>
 
-        <p className="mt-2 text-sm text-neutral-500">
-          Manage available and reserved stock.
-        </p>
+          <p className="mt-2 text-sm text-neutral-500">
+            Manage available and reserved stock across active and inactive products.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {(
+            [
+              { key: "all", label: `All (${counts.all})` },
+              { key: "active", label: `Active (${counts.active})` },
+              { key: "inactive", label: `Inactive (${counts.inactive})` },
+            ] as const
+          ).map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setVisibilityFilter(option.key)}
+              className={`border px-3.5 py-2 text-xs uppercase tracking-widest transition ${
+                visibilityFilter === option.key
+                  ? "border-black bg-black text-white"
+                  : "border-neutral-300 bg-white text-neutral-600 hover:border-black hover:text-black"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error ? (
-        <div className="border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div
+          role="alert"
+          className="border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+        >
           {error}
+        </div>
+      ) : null}
+
+      {statusMessage ? (
+        <div
+          role="status"
+          className="border border-green-200 bg-green-50 p-4 text-sm text-green-800"
+        >
+          {statusMessage}
         </div>
       ) : null}
 
@@ -197,6 +315,10 @@ export default function AdminInventoryPage() {
         {loading ? (
           <div className="p-8 text-sm text-neutral-500">
             Loading inventory...
+          </div>
+        ) : visibleItems.length === 0 ? (
+          <div className="p-8 text-sm text-neutral-500">
+            No products match this filter.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -234,149 +356,109 @@ export default function AdminInventoryPage() {
               </thead>
 
               <tbody className="divide-y divide-neutral-200">
-                {items.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-5 py-5">
-                      <p className="text-sm font-medium text-neutral-900">
-                        {item.name}
-                      </p>
+                {visibleItems.map((item) => {
+                  const draftValue =
+                    draftQuantities[item.id] ?? String(item.quantity);
+                  const isDirty = draftValue.trim() !== String(item.quantity);
+                  const isSaving = savingId === item.id;
 
-                      <p className="mt-1 text-xs text-neutral-400">
-                        {item.slug}
-                      </p>
-                    </td>
+                  return (
+                    <tr key={item.id}>
+                      <td className="px-5 py-5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Link
+                            href={`/admin/products/${item.id}`}
+                            className="text-sm font-medium text-neutral-900 hover:underline"
+                          >
+                            {item.name}
+                          </Link>
 
-                    <td className="px-5 py-5 text-xs text-neutral-500">
-                      {item.sku}
-                    </td>
+                          {!item.isActive ? (
+                            <span className="bg-neutral-100 px-2 py-0.5 text-[10px] uppercase tracking-widest text-neutral-500">
+                              Inactive
+                            </span>
+                          ) : null}
+                        </div>
 
-                    <td className="px-5 py-5 text-center text-sm text-neutral-700">
-                      {item.quantity}
-                    </td>
+                        <p className="mt-1 text-xs text-neutral-400">
+                          {item.slug}
+                        </p>
+                      </td>
 
-                    <td className="px-5 py-5 text-center text-sm text-neutral-700">
-                      {item.reserved}
-                    </td>
+                      <td className="px-5 py-5 text-xs text-neutral-500">
+                        {item.sku}
+                      </td>
 
-                    <td className="px-5 py-5 text-center text-sm font-medium text-neutral-900">
-                      {item.available}
-                    </td>
+                      <td className="px-5 py-5 text-center text-sm text-neutral-700">
+                        {item.quantity}
+                      </td>
 
-                    <td className="px-5 py-5">
-                      <span
-                        className={`inline-flex px-2.5 py-1 text-[10px] uppercase tracking-widest ${
-                          item.status ===
-                          "OUT_OF_STOCK"
-                            ? "bg-red-50 text-red-600"
-                            : item.status ===
-                                "LOW_STOCK"
-                              ? "bg-amber-50 text-amber-700"
-                              : "bg-neutral-100 text-neutral-700"
-                        }`}
-                      >
-                        {statusLabel(
-                          item.status,
-                        )}
-                      </span>
-                    </td>
+                      <td className="px-5 py-5 text-center text-sm text-neutral-700">
+                        {item.reserved}
+                      </td>
 
-                    <td className="px-5 py-5">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          min={item.reserved}
-                          defaultValue={
-                            item.quantity
-                          }
-                          disabled={
-                            savingId ===
-                            item.id
-                          }
-                          className="admin-input w-24"
-                          onKeyDown={(
-                            event,
-                          ) => {
-                            if (
-                              event.key !==
-                              "Enter"
-                            ) {
-                              return;
-                            }
+                      <td className="px-5 py-5 text-center text-sm font-medium text-neutral-900">
+                        {item.available}
+                      </td>
 
-                            const target =
-                              event.currentTarget;
-
-                            const value =
-                              Number(
-                                target.value,
-                              );
-
-                            if (
-                              Number.isInteger(
-                                value,
-                              ) &&
-                              value >=
-                                item.reserved
-                            ) {
-                              void updateQuantity(
-                                item.id,
-                                value,
-                              );
-                            }
-                          }}
-                        />
-
-                        <button
-                          type="button"
-                          disabled={
-                            savingId ===
-                            item.id
-                          }
-                          onClick={(
-                            event,
-                          ) => {
-                            const input =
-                              event.currentTarget
-                                .parentElement
-                                ?.querySelector(
-                                  "input",
-                                );
-
-                            if (
-                              !input
-                            ) {
-                              return;
-                            }
-
-                            const value =
-                              Number(
-                                input.value,
-                              );
-
-                            if (
-                              Number.isInteger(
-                                value,
-                              ) &&
-                              value >=
-                                item.reserved
-                            ) {
-                              void updateQuantity(
-                                item.id,
-                                value,
-                              );
-                            }
-                          }}
-                          className="border border-neutral-300 px-3 py-2 text-[10px] uppercase tracking-widest transition hover:border-black disabled:cursor-not-allowed disabled:opacity-50"
+                      <td className="px-5 py-5">
+                        <span
+                          className={`inline-flex px-2.5 py-1 text-[10px] uppercase tracking-widest ${
+                            item.status ===
+                            "OUT_OF_STOCK"
+                              ? "bg-red-50 text-red-600"
+                              : item.status ===
+                                  "LOW_STOCK"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-neutral-100 text-neutral-700"
+                          }`}
                         >
-                          {savingId ===
-                          item.id
-                            ? "..."
-                            : "Save"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {statusLabel(
+                            item.status,
+                          )}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-5">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={item.reserved}
+                            step={1}
+                            aria-label={`Stock quantity for ${item.name}`}
+                            value={draftValue}
+                            disabled={isSaving}
+                            className="admin-input w-24"
+                            onChange={(event) => {
+                              const nextValue = event.target.value;
+                              setDraftQuantities((current) => ({
+                                ...current,
+                                [item.id]: nextValue,
+                              }));
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key !== "Enter") {
+                                return;
+                              }
+
+                              event.preventDefault();
+                              void submitRow(item);
+                            }}
+                          />
+
+                          <button
+                            type="button"
+                            disabled={isSaving || !isDirty}
+                            onClick={() => void submitRow(item)}
+                            className="border border-neutral-300 px-3 py-2 text-[10px] uppercase tracking-widest transition hover:border-black disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isSaving ? "..." : "Save"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

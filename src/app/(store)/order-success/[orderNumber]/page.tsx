@@ -49,6 +49,12 @@ type OrderData = {
     upiTransactionReference: string | null;
     upiReferenceSubmittedAt: string | null;
   } | null;
+  shipment: {
+    provider: string | null;
+    trackingNumber: string | null;
+    trackingUrl: string | null;
+    status: string;
+  } | null;
   items: OrderItem[];
 };
 
@@ -115,7 +121,7 @@ async function getOrder(orderNumber: string): Promise<OrderData | null> {
     }
   }
 
-  const [items, payment] = await Promise.all([
+  const [items, payment, shipment] = await Promise.all([
     db.orm.public.OrderItem.where({
       orderId: order.id,
     })
@@ -138,6 +144,12 @@ async function getOrder(orderNumber: string): Promise<OrderData | null> {
         "upiTransactionReference",
         "upiReferenceSubmittedAt",
       )
+      .first(),
+
+    db.orm.public.Shipment.where({
+      orderId: order.id,
+    })
+      .select("provider", "trackingNumber", "trackingUrl", "status")
       .first(),
   ]);
 
@@ -165,6 +177,7 @@ async function getOrder(orderNumber: string): Promise<OrderData | null> {
       countryCode: order.shippingCountryCode,
     },
     payment,
+    shipment,
     items,
   };
 }
@@ -302,6 +315,32 @@ export default async function OrderSuccessPage({
             <p className="mt-3 text-sm font-medium">
               {formatStatus(order.shippingStatus)}
             </p>
+
+            {(order.shipment?.provider ||
+              order.shipment?.trackingNumber ||
+              order.shipment?.trackingUrl) && (
+              <div className="mt-2 space-y-1 text-xs text-[#241f1b]/65">
+                {order.shipment.provider && (
+                  <p>Courier: {order.shipment.provider}</p>
+                )}
+                {order.shipment.trackingNumber && (
+                  <p className="font-mono">
+                    Tracking: {order.shipment.trackingNumber}
+                  </p>
+                )}
+                {order.shipment.trackingUrl &&
+                /^https?:\/\//i.test(order.shipment.trackingUrl) ? (
+                  <a
+                    href={order.shipment.trackingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block font-medium text-[#241f1b] underline"
+                  >
+                    Track package →
+                  </a>
+                ) : null}
+              </div>
+            )}
           </div>
         </section>
 

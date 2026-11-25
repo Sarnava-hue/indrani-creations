@@ -6,40 +6,40 @@ import { requireAdmin } from "@/lib/auth/admin";
 export default async function AdminDashboardPage() {
   await requireAdmin();
 
-  const products = await db.orm.public.Product
-    .where({ isActive: true })
-    .select("id")
-    .all();
+  const [
+    { activeProducts },
+    { activeCategories },
+    { pendingOrders },
+    { nonCancelledRevenue },
+  ] = await Promise.all([
+    db.orm.public.Product.where({ isActive: true }).aggregate((aggregate) => ({
+      activeProducts: aggregate.count(),
+    })),
+    db.orm.public.Category.where({ isActive: true }).aggregate((aggregate) => ({
+      activeCategories: aggregate.count(),
+    })),
+    db.orm.public.Order.where({ status: "PENDING" }).aggregate((aggregate) => ({
+      pendingOrders: aggregate.count(),
+    })),
+    db.orm.public.Order.where((order) => order.status.neq("CANCELLED")).aggregate(
+      (aggregate) => ({
+        nonCancelledRevenue: aggregate.sumBigInt("totalPaise"),
+      }),
+    ),
+  ]);
 
-  const categories = await db.orm.public.Category
-    .where({ isActive: true })
-    .select("id")
-    .all();
-
-  const orders = await db.orm.public.Order
-    .select("id", "status", "totalPaise")
-    .all();
-
-  const pendingOrders = orders.filter(
-    (order) => order.status === "PENDING",
-  ).length;
-
-  const totalRevenuePaise = orders
-    .filter((order) => order.status !== "CANCELLED")
-    .reduce(
-      (total, order) => total + order.totalPaise,
-      0,
-    );
+  const totalRevenuePaise =
+    nonCancelledRevenue !== null ? Number(nonCancelledRevenue) : 0;
 
   const stats = [
     {
       label: "Active products",
-      value: products.length,
+      value: activeProducts,
       href: "/admin/products",
     },
     {
       label: "Categories",
-      value: categories.length,
+      value: activeCategories,
       href: "/admin/categories",
     },
     {

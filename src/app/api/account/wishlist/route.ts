@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 import { getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { getAvailableQuantity } from "@/lib/inventory/status";
+import {
+  getAvailableQuantitiesByProductIds,
+  getPrimaryImagesByProductIds,
+} from "@/lib/store/product-queries";
 
 type WishlistProductInput = {
   productId: number;
@@ -44,7 +47,7 @@ export async function GET() {
       ...new Set(wishlistItems.map((item) => item.productId)),
     ];
 
-    const [products, images, inventories] = await Promise.all([
+    const [products, primaryImageMap, inventoryMap] = await Promise.all([
       db.orm.public.Product.where((product) => product.id.in(productIds))
         .where({ isActive: true })
         .select(
@@ -63,53 +66,12 @@ export async function GET() {
           "isFeatured",
         )
         .all(),
-      db.orm.public.ProductImage.where((image) =>
-        image.productId.in(productIds),
-      )
-        .select("id", "productId", "url", "altText", "sortOrder", "isPrimary")
-        .orderBy((image) => image.sortOrder.asc())
-        .all(),
-      db.orm.public.Inventory.where((inventory) =>
-        inventory.productId.in(productIds),
-      )
-        .select("productId", "quantity", "reserved")
-        .all(),
+      getPrimaryImagesByProductIds(productIds),
+      getAvailableQuantitiesByProductIds(productIds),
     ]);
 
     const productMap = new Map(
       products.map((product) => [product.id, product]),
-    );
-
-    const primaryImageMap = new Map<
-      number,
-      {
-        id: number;
-        url: string;
-        altText: string | null;
-        sortOrder: number;
-        isPrimary: boolean;
-      }
-    >();
-
-    for (const image of images) {
-      const existing = primaryImageMap.get(image.productId);
-
-      if (!existing || (image.isPrimary && !existing.isPrimary)) {
-        primaryImageMap.set(image.productId, {
-          id: image.id,
-          url: image.url,
-          altText: image.altText,
-          sortOrder: image.sortOrder,
-          isPrimary: image.isPrimary,
-        });
-      }
-    }
-
-    const inventoryMap = new Map(
-      inventories.map((record) => [
-        record.productId,
-        getAvailableQuantity(record.quantity, record.reserved),
-      ]),
     );
 
     const populatedWishlist = wishlistItems.flatMap((item) => {

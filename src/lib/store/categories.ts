@@ -1,6 +1,8 @@
+import { cache } from "react";
+
 import { db } from "@/lib/db";
 
-export async function getActiveCategories() {
+export const getActiveCategories = cache(async () => {
   return db.orm.public.Category
     .where({
       isActive: true,
@@ -18,4 +20,4 @@ export async function getActiveCategories() {
       category.sortOrder.asc(),
     )
     .all();
-}
+});

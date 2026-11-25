@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { attachPrimaryImages } from "@/lib/store/product-queries";
 
 export async function GET() {
   try {
@@ -27,37 +28,7 @@ export async function GET() {
         .limit(50)
         .all();
 
-    const productsWithImages =
-      await Promise.all(
-        products.map(async (product) => {
-          const images =
-            await db.orm.public.ProductImage
-              .where({
-                productId: product.id,
-              })
-              .select(
-                "id",
-                "url",
-                "altText",
-                "sortOrder",
-                "isPrimary",
-              )
-              .orderBy((image) =>
-                image.sortOrder.asc(),
-              )
-              .all();
-
-          const primaryImage =
-            images.find(
-              (image) => image.isPrimary,
-            ) ?? images[0] ?? null;
-
-          return {
-            ...product,
-            primaryImage,
-          };
-        }),
-      );
+    const productsWithImages = await attachPrimaryImages(products);
 
     return NextResponse.json({
       products: productsWithImages,

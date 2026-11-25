@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { db } from "@/lib/db";
-import { getAvailableQuantity } from "@/lib/inventory/status";
+import {
+  getAvailableQuantitiesByProductIds,
+  getPrimaryImagesByProductIds,
+} from "@/lib/store/product-queries";
 
 type ValidateCartRequest = {
   productIds?: unknown;
@@ -61,7 +64,7 @@ export async function POST(request: Request) {
 
     const productIds = [...new Set(validIds)];
 
-    const [products, inventories, images] = await Promise.all([
+    const [products, inventoryMap, imageMap] = await Promise.all([
       db.orm.public.Product.where((product) => product.id.in(productIds))
         .select(
           "id",
@@ -73,41 +76,9 @@ export async function POST(request: Request) {
           "isOneOfOne",
         )
         .all(),
-      db.orm.public.Inventory.where((inventory) =>
-        inventory.productId.in(productIds),
-      )
-        .select("productId", "quantity", "reserved")
-        .all(),
-      db.orm.public.ProductImage.where((image) =>
-        image.productId.in(productIds),
-      )
-        .select("productId", "url", "sortOrder", "isPrimary")
-        .orderBy((image) => image.sortOrder.asc())
-        .all(),
+      getAvailableQuantitiesByProductIds(productIds),
+      getPrimaryImagesByProductIds(productIds),
     ]);
-
-    const inventoryMap = new Map(
-      inventories.map((record) => [
-        record.productId,
-        getAvailableQuantity(record.quantity, record.reserved),
-      ]),
-    );
-
-    const imageMap = new Map<
-      number,
-      { url: string; isPrimary: boolean }
-    >();
-
-    for (const image of images) {
-      const existing = imageMap.get(image.productId);
-
-      if (!existing || (image.isPrimary && !existing.isPrimary)) {
-        imageMap.set(image.productId, {
-          url: image.url,
-          isPrimary: image.isPrimary,
-        });
-      }
-    }
 
     return NextResponse.json({
       products: products.map((product) => ({

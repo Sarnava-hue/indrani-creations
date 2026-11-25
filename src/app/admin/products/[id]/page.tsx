@@ -27,29 +27,40 @@ export default async function EditProductPage({
     );
   }
 
-  const products = await db.orm.public.Product.where({ id })
-    .select(
-      "id",
-      "categoryId",
-      "name",
-      "sku",
-      "shortDescription",
-      "description",
-      "pricePaise",
-      "compareAtPricePaise",
-      "fabric",
-      "color",
-      "occasion",
-      "pattern",
-      "sareeLength",
-      "blouseIncluded",
-      "blouseDetails",
-      "careInstructions",
-      "isOneOfOne",
-      "isActive",
-      "isFeatured",
-    )
-    .all();
+  const [products, inventories, categories] = await Promise.all([
+    db.orm.public.Product.where({ id })
+      .select(
+        "id",
+        "categoryId",
+        "name",
+        "sku",
+        "shortDescription",
+        "description",
+        "pricePaise",
+        "compareAtPricePaise",
+        "fabric",
+        "color",
+        "occasion",
+        "pattern",
+        "sareeLength",
+        "blouseIncluded",
+        "blouseDetails",
+        "careInstructions",
+        "isOneOfOne",
+        "isActive",
+        "isFeatured",
+      )
+      .all(),
+
+    db.orm.public.Inventory.where({ productId: id })
+      .select("quantity", "reserved")
+      .all(),
+
+    db.orm.public.Category.where({ isActive: true })
+      .select("id", "name")
+      .orderBy((category) => category.sortOrder.asc())
+      .all(),
+  ]);
 
   const product = products[0];
 
@@ -68,19 +79,10 @@ export default async function EditProductPage({
     );
   }
 
-  const inventories = await db.orm.public.Inventory.where({ productId: id })
-    .select("quantity", "reserved")
-    .all();
-
   const inventory = inventories[0] ?? {
     quantity: 0,
     reserved: 0,
   };
-
-  const categories = await db.orm.public.Category.where({ isActive: true })
-    .select("id", "name")
-    .orderBy((category) => category.sortOrder.asc())
-    .all();
 
   return (
     <div>

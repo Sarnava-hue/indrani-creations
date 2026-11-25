@@ -1,3 +1,4 @@
+import { cache } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
@@ -6,6 +7,7 @@ import { WishlistButton } from "@/components/store/wishlist-button";
 import { AddToBagButton } from "@/components/store/add-to-bag-button";
 import { ProductGallery } from "@/components/store/product-gallery";
 import { ProductCard } from "@/components/store/product-card";
+import { attachPrimaryImages } from "@/lib/store/product-queries";
 
 type ProductPageProps = {
   params: Promise<{
@@ -13,7 +15,7 @@ type ProductPageProps = {
   }>;
 };
 
-async function getProduct(slug: string) {
+const getProduct = cache(async (slug: string) => {
   const product = await db.orm.public.Product.where({
     slug,
     isActive: true,
@@ -45,27 +47,52 @@ async function getProduct(slug: string) {
     return null;
   }
 
-  const images = await db.orm.public.ProductImage.where({
-    productId: product.id,
-  })
-    .select("id", "url", "altText", "sortOrder", "isPrimary")
-    .orderBy((image) => image.sortOrder.asc())
-    .all();
+  const [images, inventory, category, relatedCandidates] = await Promise.all([
+    db.orm.public.ProductImage.where({
+      productId: product.id,
+    })
+      .select("id", "url", "altText", "sortOrder", "isPrimary")
+      .orderBy((image) => image.sortOrder.asc())
+      .all(),
+
+    db.orm.public.Inventory.where({
+      productId: product.id,
+    })
+      .select("quantity", "reserved")
+      .first(),
+
+    db.orm.public.Category.where({
+      id: product.categoryId,
+    })
+      .select("name", "slug")
+      .first(),
+
+    db.orm.public.Product.where({
+      categoryId: product.categoryId,
+      isActive: true,
+    })
+      .select(
+        "id",
+        "name",
+        "slug",
+        "pricePaise",
+        "compareAtPricePaise",
+        "isOneOfOne",
+        "isFeatured",
+      )
+      .orderBy((item) => item.createdAt.desc())
+      .limit(5)
+      .all(),
+  ]);
 
   const primaryImage =
     images.find((image) => image.isPrimary) ?? images[0] ?? null;
 
-  const inventory = await db.orm.public.Inventory.where({
-    productId: product.id,
-  })
-    .select("quantity", "reserved")
-    .first();
+  const relatedProducts = relatedCandidates
+    .filter((item) => item.id !== product.id)
+    .slice(0, 4);
 
-  const category = await db.orm.public.Category.where({
-    id: product.categoryId,
-  })
-    .select("name", "slug")
-    .first();
+  const relatedProductsWithImages = await attachPrimaryImages(relatedProducts);
 
   return {
     product,
@@ -73,8 +100,9 @@ async function getProduct(slug: string) {
     primaryImage,
     inventory,
     category,
+    relatedProductsWithImages,
   };
-}
+});
 
 export async function generateMetadata({ params }: ProductPageProps) {
   const { slug } = await params;
@@ -132,7 +160,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound();
   }
 
-  const { product, images, primaryImage, inventory, category } = result;
+  const {
+    product,
+    images,
+    primaryImage,
+    inventory,
+    category,
+    relatedProductsWithImages,
+  } = result;
 
   const siteUrl = "https://indranicreations.store";
 
@@ -206,46 +241,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const isSaree =
     Boolean(product.sareeLength) || Boolean(category?.slug.includes("saree"));
-
-  const relatedCandidates = category
-    ? await db.orm.public.Product.where({
-        categoryId: product.categoryId,
-        isActive: true,
-      })
-        .select(
-          "id",
-          "name",
-          "slug",
-          "pricePaise",
-          "compareAtPricePaise",
-          "isOneOfOne",
-          "isFeatured",
-        )
-        .all()
-    : [];
-
-  const relatedProducts = relatedCandidates
-    .filter((item) => item.id !== product.id)
-    .slice(0, 4);
-
-  const relatedProductsWithImages = await Promise.all(
-    relatedProducts.map(async (item) => {
-      const itemImages = await db.orm.public.ProductImage.where({
-        productId: item.id,
-      })
-        .select("url", "altText", "sortOrder", "isPrimary")
-        .orderBy((image) => image.sortOrder.asc())
-        .all();
-
-      const primaryItemImage =
-        itemImages.find((image) => image.isPrimary) ?? itemImages[0] ?? null;
-
-      return {
-        ...item,
-        primaryImage: primaryItemImage,
-      };
-    }),
-  );
 
   return (
     <main className="min-h-screen bg-[#f7f4ef]">

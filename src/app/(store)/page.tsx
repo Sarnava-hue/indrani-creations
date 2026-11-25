@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/store/product-card";
 import { db } from "@/lib/db";
+import { getActiveCategories } from "@/lib/store/categories";
+import { attachPrimaryImages } from "@/lib/store/product-queries";
 import Image from "next/image";
 
 const baseCollections = [
@@ -44,11 +46,7 @@ const baseCollections = [
 
 export default async function HomePage() {
   const [activeCategories, products] = await Promise.all([
-    db.orm.public.Category.where({
-      isActive: true,
-    })
-      .select("slug")
-      .all(),
+    getActiveCategories(),
 
     db.orm.public.Product.where({
       isActive: true,
@@ -87,22 +85,7 @@ export default async function HomePage() {
     };
   });
 
-  const productsWithImages = await Promise.all(
-    products.map(async (product) => {
-      const images = await db.orm.public.ProductImage.where({
-        productId: product.id,
-      })
-        .select("url", "altText", "sortOrder", "isPrimary")
-        .orderBy((image) => image.sortOrder.asc())
-        .all();
-
-      return {
-        ...product,
-        primaryImage:
-          images.find((image) => image.isPrimary) ?? images[0] ?? null,
-      };
-    }),
-  );
+  const productsWithImages = await attachPrimaryImages(products);
 
   return (
     <main className="bg-[#faf8f4] text-[#29251f]">

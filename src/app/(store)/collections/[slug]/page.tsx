@@ -1,9 +1,11 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { db } from "@/lib/db";
 import { ProductCard } from "@/components/store/product-card";
+import { attachPrimaryImages } from "@/lib/store/product-queries";
 
 type PageProps = {
   params: Promise<{
@@ -11,7 +13,7 @@ type PageProps = {
   }>;
 };
 
-async function getCategory(slug: string) {
+const getCategory = cache(async (slug: string) => {
   const category = await db.orm.public.Category.where({
     slug,
     isActive: true,
@@ -53,30 +55,13 @@ async function getCategory(slug: string) {
     .orderBy((product) => product.createdAt.desc())
     .all();
 
-  const productsWithImages = await Promise.all(
-    products.map(async (product) => {
-      const images = await db.orm.public.ProductImage.where({
-        productId: product.id,
-      })
-        .select("id", "url", "altText", "sortOrder", "isPrimary")
-        .orderBy((image) => image.sortOrder.asc())
-        .all();
-
-      const primaryImage =
-        images.find((image) => image.isPrimary) ?? images[0] ?? null;
-
-      return {
-        ...product,
-        primaryImage,
-      };
-    }),
-  );
+  const productsWithImages = await attachPrimaryImages(products);
 
   return {
     category,
     products: productsWithImages,
   };
-}
+});
 
 export async function generateMetadata({
   params,

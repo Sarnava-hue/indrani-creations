@@ -2,6 +2,8 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { ProductCard } from "@/components/store/product-card";
 import { ShopSort } from "@/components/store/shop-sort";
+import { getActiveCategories } from "@/lib/store/categories";
+import { attachPrimaryImagesAndStock } from "@/lib/store/product-queries";
 import type { Metadata } from "next";
 
 const siteUrl = "https://indranicreations.store";
@@ -82,13 +84,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
   // ------------------------------------------------------------
-  // Categories
+  // Categories (reuses request-cached getActiveCategories)
   // ------------------------------------------------------------
 
-  const categories = await db.orm.public.Category.where({ isActive: true })
-    .select("id", "name", "slug")
-    .orderBy((category) => category.sortOrder.asc())
-    .all();
+  const categories = await getActiveCategories();
 
   // ------------------------------------------------------------
   // Category filter (includes all descendant categories)
@@ -97,22 +96,13 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   let categoryIds: number[] | undefined;
 
   if (categorySlug) {
-    const selectedCategory = await db.orm.public.Category.where({
-      slug: categorySlug,
-      isActive: true,
-    })
-      .select("id")
-      .first();
+    const selectedCategory = categories.find(
+      (category) => category.slug === categorySlug,
+    );
 
     if (!selectedCategory) {
       categoryIds = [];
     } else {
-      const allCategories = await db.orm.public.Category.where({
-        isActive: true,
-      })
-        .select("id", "parentId")
-        .all();
-
       const descendants = new Set<number>([selectedCategory.id]);
 
       let foundNew = true;
@@ -120,7 +110,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       while (foundNew) {
         foundNew = false;
 
-        for (const category of allCategories) {
+        for (const category of categories) {
           if (
             category.parentId !== null &&
             descendants.has(category.parentId) &&
@@ -292,32 +282,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     );
   }
 
-  const productsWithImages = await Promise.all(
-    products.map(async (product) => {
-      const images = await db.orm.public.ProductImage.where({
-        productId: product.id,
-      })
-        .select("url", "altText", "sortOrder", "isPrimary")
-        .orderBy((image) => image.sortOrder.asc())
-        .all();
-
-      const inventory = await db.orm.public.Inventory.where({
-        productId: product.id,
-      })
-        .select("quantity", "reserved")
-        .first();
-
-      const availableQuantity =
-        (inventory?.quantity ?? 0) - (inventory?.reserved ?? 0);
-
-      return {
-        ...product,
-        availableQuantity,
-        primaryImage:
-          images.find((image) => image.isPrimary) ?? images[0] ?? null,
-      };
-    }),
-  );
+  const productsWithImages = await attachPrimaryImagesAndStock(products);
 
   // ------------------------------------------------------------
   // Sorting

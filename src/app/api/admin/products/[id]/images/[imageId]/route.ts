@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { unlink } from "fs/promises";
-import path from "path";
 
 import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
+import { deleteStoredProductImage } from "@/lib/storage/product-images";
 
 function parseId(value: string) {
   const id = Number(value);
@@ -438,23 +437,13 @@ export async function DELETE(
     }
 
     /*
-     * Delete physical file safely after transaction commits.
+     * Delete stored image asset safely after transaction commits.
      */
     try {
-      const relativePath =
-        txResult.deletedUrl.startsWith("/")
-          ? txResult.deletedUrl.slice(1)
-          : txResult.deletedUrl;
-
-      const productsRoot = path.resolve(process.cwd(), "public", "products");
-      const filePath = path.resolve(process.cwd(), "public", relativePath);
-
-      if (filePath.startsWith(`${productsRoot}${path.sep}`)) {
-        await unlink(filePath);
-      }
+      await deleteStoredProductImage(txResult.deletedUrl);
     } catch (fileError) {
       console.warn(
-        "Could not delete image file:",
+        "Could not delete image asset:",
         fileError,
       );
     }

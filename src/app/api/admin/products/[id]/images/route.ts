@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
-import { mkdir, unlink, writeFile } from "fs/promises";
-import path from "path";
 import crypto from "crypto";
 
 import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 import { detectImageFormat } from "@/lib/security/image-validation";
+import {
+  deleteStoredProductImage,
+  ProductImageStorageConfigError,
+  uploadProductImage,
+} from "@/lib/storage/product-images";
 
 function parseId(value: string) {
   const id = Number(value);
@@ -198,23 +201,12 @@ export async function POST(
 
     const filename = `${crypto.randomUUID()}.${detectedFormat.extension}`;
 
-    const productsRoot = path.resolve(process.cwd(), "public", "products");
-    const uploadDirectory = path.resolve(productsRoot, String(productId));
-
-    if (!uploadDirectory.startsWith(`${productsRoot}${path.sep}`)) {
-      return NextResponse.json(
-        { error: "Invalid product upload directory." },
-        { status: 400 },
-      );
-    }
-
-    await mkdir(uploadDirectory, {
-      recursive: true,
+    const uploaded = await uploadProductImage({
+      productId,
+      filename,
+      buffer,
+      contentType: detectedFormat.mimeType,
     });
-
-    const filePath = path.resolve(uploadDirectory, filename);
-
-    await writeFile(filePath, buffer);
 
     try {
       const existingImages =
@@ -243,7 +235,7 @@ export async function POST(
       const image =
         await db.orm.public.ProductImage.create({
           productId,
-          url: `/products/${productId}/${filename}`,
+          url: uploaded.url,
           altText,
           sortOrder: nextSortOrder,
           isPrimary: isFirstImage,
@@ -263,7 +255,7 @@ export async function POST(
         { status: 201 },
       );
     } catch (dbError) {
-      await unlink(filePath).catch(() => {});
+      await deleteStoredProductImage(uploaded.url).catch(() => {});
       throw dbError;
     }
   } catch (error) {
@@ -271,6 +263,13 @@ export async function POST(
       "Failed to upload product image:",
       error,
     );
+
+    if (error instanceof ProductImageStorageConfigError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 },
+      );
+    }
 
     return NextResponse.json(
       { error: "Unable to upload image." },

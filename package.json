@@ -16,7 +16,6 @@
   "dependencies": {
     "@next/env": "^16.3.5",
     "@prisma/orm-postgres": "^8.0.0-rc.11",
-    "@razorpay/razorpay-js": "^1.0.0",
     "@swc/helpers": "^0.5.23",
     "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.9.0",
@@ -26,7 +25,6 @@
     "next": "16.3.5",
     "prisma": "^8.0.0-rc.15",
     "qrcode": "^1.5.4",
-    "razorpay": "^2.9.8",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },

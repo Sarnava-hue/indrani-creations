@@ -541,7 +541,7 @@ export async function POST(request: Request) {
 
       /*
        * -------------------------------------------------
-       * Create Razorpay payment record
+       * Create manual UPI payment record
        * -------------------------------------------------
        */
 

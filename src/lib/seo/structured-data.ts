@@ -14,6 +14,7 @@ type SiteGraphInput = {
   siteUrl: string;
   contactEmail?: string | null;
   contactPhone?: string | null;
+  sameAs?: readonly string[];
 };
 
 type ProductSchemaInput = {
@@ -74,6 +75,7 @@ export function buildSiteGraphJsonLd({
   siteUrl,
   contactEmail,
   contactPhone,
+  sameAs,
 }: SiteGraphInput) {
   const organizationId = `${siteUrl}#organization`;
   const websiteId = `${siteUrl}#website`;
@@ -81,6 +83,9 @@ export function buildSiteGraphJsonLd({
 
   const email = contactEmail?.trim();
   const phone = contactPhone?.trim();
+  const sameAsLinks = (sameAs ?? [])
+    .map((url) => url.trim())
+    .filter((url) => url.length > 0);
 
   return {
     "@context": "https://schema.org",
@@ -91,6 +96,7 @@ export function buildSiteGraphJsonLd({
         name: "Indrani Creations",
         url: siteUrl,
         logo: resolveMetadataImageUrl(DEFAULT_OG_IMAGE_PATH),
+        ...(sameAsLinks.length > 0 ? { sameAs: sameAsLinks } : {}),
         contactPoint: {
           "@type": "ContactPoint",
           contactType: "customer service",
@@ -133,7 +139,7 @@ export function buildSiteGraphJsonLd({
         returnMethod: "https://schema.org/ReturnByMail",
         merchantReturnLink: `${siteUrl}/returns`,
       },
-    ],
+    ] as const,
   };
 }
 

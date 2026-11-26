@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/store/cart-provider";
-import { SITE_URL } from "@/lib/config/site";
+import { SITE_URL, SOCIAL_LINKS } from "@/lib/config/site";
 import { JsonLdScript } from "@/components/seo/json-ld-script";
 import {
   DEFAULT_OG_IMAGE_ALT,
@@ -24,6 +24,8 @@ const geistMono = Geist_Mono({
 
 const googleVerification =
   process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim() || undefined;
+const bingVerification =
+  process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION?.trim() || undefined;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -38,7 +40,14 @@ export const metadata: Metadata = {
 
   applicationName: "Indrani Creations",
 
-  ...(googleVerification ? { verification: { google: googleVerification } } : {}),
+  ...(googleVerification || bingVerification
+    ? {
+        verification: {
+          ...(googleVerification ? { google: googleVerification } : {}),
+          ...(bingVerification ? { other: { "msvalidate.01": bingVerification } } : {}),
+        },
+      }
+    : {}),
 
   openGraph: {
     type: "website",
@@ -86,6 +95,7 @@ const siteGraphJsonLd = buildSiteGraphJsonLd({
   siteUrl: SITE_URL,
   contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL,
   contactPhone: process.env.NEXT_PUBLIC_CONTACT_PHONE,
+  sameAs: SOCIAL_LINKS.map((item) => item.href),
 });
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

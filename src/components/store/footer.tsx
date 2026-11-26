@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { SOCIAL_LINKS } from "@/lib/config/site";
 import { getActiveCategories } from "@/lib/store/categories";
 
 export async function Footer() {
@@ -21,6 +22,22 @@ export async function Footer() {
             Sarees, artisanal bangles and jewellery for the moments that make
             life beautiful.
           </p>
+
+          {SOCIAL_LINKS.length > 0 && (
+            <div className="mt-6 flex flex-wrap gap-4">
+              {SOCIAL_LINKS.map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="border-b border-white/25 pb-0.5 text-xs uppercase tracking-[0.16em] text-[#ded5ca] transition hover:border-white hover:text-white"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>

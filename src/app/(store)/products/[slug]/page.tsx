@@ -7,6 +7,7 @@ import { WishlistButton } from "@/components/store/wishlist-button";
 import { AddToBagButton } from "@/components/store/add-to-bag-button";
 import { ProductGallery } from "@/components/store/product-gallery";
 import { ProductCard } from "@/components/store/product-card";
+import { ProductShareActions } from "@/components/store/product-share-actions";
 import { CollectionLinksStrip } from "@/components/store/collection-links-strip";
 import { JsonLdScript } from "@/components/seo/json-ld-script";
 import {
@@ -400,6 +401,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
                 imageUrl={primaryImage?.url}
                 maxQuantity={availableQuantity}
                 isOneOfOne={product.isOneOfOne}
+              />
+
+              <ProductShareActions
+                productName={product.name}
+                productUrl={`${SITE_URL}/products/${product.slug}`}
               />
             </div>
 

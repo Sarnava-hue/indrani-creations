@@ -49,6 +49,16 @@ type CollectionPageSchemaInput = {
   }[];
 };
 
+type ArticleSchemaInput = {
+  siteUrl: string;
+  slug: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  publishedAt: string;
+  updatedAt: string;
+};
+
 /**
  * Serializes JSON-LD safely for embedding inside HTML <script> tags.
  */
@@ -258,6 +268,45 @@ export function buildCollectionPageJsonLd({
           ? { image: resolveMetadataImageUrl(product.primaryImage.url) }
           : {}),
       })),
+    },
+  };
+}
+
+/**
+ * Builds Schema.org Article structured data for editorial guides linked back to
+ * the root OnlineStore organization node.
+ */
+export function buildArticleJsonLd({
+  siteUrl,
+  slug,
+  title,
+  description,
+  imageUrl,
+  publishedAt,
+  updatedAt,
+}: ArticleSchemaInput) {
+  const articleUrl = `${siteUrl}/guides/${slug}`;
+  const organizationId = `${siteUrl}#organization`;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: title,
+    description,
+    url: articleUrl,
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": articleUrl,
+    },
+    image: [resolveMetadataImageUrl(imageUrl)],
+    datePublished: publishedAt,
+    dateModified: updatedAt,
+    inLanguage: "en-IN",
+    author: {
+      "@id": organizationId,
+    },
+    publisher: {
+      "@id": organizationId,
     },
   };
 }

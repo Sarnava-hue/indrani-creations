@@ -122,6 +122,13 @@ export async function Header() {
           </div>
 
           <Link
+            href="/guides"
+            className="text-[11px] uppercase tracking-[0.16em] text-stone-700 transition hover:text-black"
+          >
+            Guides
+          </Link>
+
+          <Link
             href="/about"
             className="text-[11px] uppercase tracking-[0.16em] text-stone-700 transition hover:text-black"
           >

@@ -42,6 +42,10 @@ export async function Footer() {
               </Link>
             ))}
 
+            <Link href="/guides" className="block hover:text-white">
+              Style guides
+            </Link>
+
             <Link href="/about" className="block hover:text-white">
               Our story
             </Link>

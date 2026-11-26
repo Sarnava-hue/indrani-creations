@@ -161,6 +161,14 @@ export function MobileMenu({
               </div>
 
               <Link
+                href="/guides"
+                onClick={closeMenu}
+                className="block border-b border-stone-200/70 py-4 text-sm uppercase tracking-[0.15em] text-stone-800"
+              >
+                Style Guides
+              </Link>
+
+              <Link
                 href="/about"
                 onClick={closeMenu}
                 className="block border-b border-stone-200/70 py-4 text-sm uppercase tracking-[0.15em] text-stone-800"

@@ -390,21 +390,24 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* NEWSLETTER */}
+      {/* EDITORIAL GUIDES */}
       <section className="border-t border-[#e2d9ce] bg-[#eae2d7] px-6 py-20 text-center md:py-24">
         <p className="text-[10px] uppercase tracking-[0.35em] text-[#8e7964]">
-          Stay in the loop
+          Care &amp; styling journal
         </p>
         <h2 className="mt-4 font-serif text-4xl md:text-5xl">
-          A little note from us.
+          Saree &amp; Jewellery Guides.
         </h2>
         <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-[#766d62]">
-          Discover new collections, thoughtful edits and stories from Indrani
-          Creations.
+          Explore practical tips on caring for pure silk sarees, choosing saree
+          lengths, and pairing artisanal bangles and earrings.
         </p>
-        <p className="mt-7 text-xs text-[#8e7964]">
-          More ways to stay connected coming soon.
-        </p>
+        <Link
+          href="/guides"
+          className="mt-8 inline-block bg-[#30271f] px-7 py-4 text-[10px] font-medium uppercase tracking-[0.2em] text-white transition hover:bg-[#59483a]"
+        >
+          Read our style guides →
+        </Link>
       </section>
     </main>
   );

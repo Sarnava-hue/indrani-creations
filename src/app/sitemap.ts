@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { SITE_URL } from "@/lib/config/site";
 import { db } from "@/lib/db";
+import { EDITORIAL_GUIDES } from "@/lib/seo/guides";
 import { getGalleryImagesByProductIds } from "@/lib/store/product-queries";
 
 export const revalidate = 3600;
@@ -82,6 +83,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      url: `${SITE_URL}/guides`,
+      ...(getLatestDate(
+        EDITORIAL_GUIDES.map((guide) => toValidDate(guide.updatedAt)),
+      )
+        ? {
+            lastModified: getLatestDate(
+              EDITORIAL_GUIDES.map((guide) => toValidDate(guide.updatedAt)),
+            ),
+          }
+        : {}),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
       url: `${SITE_URL}/about`,
       changeFrequency: "monthly",
       priority: 0.5,
@@ -101,6 +116,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly",
       priority: 0.4,
     },
+
+    ...EDITORIAL_GUIDES.map((guide) => {
+      const lastModified = toValidDate(guide.updatedAt);
+      const imageUrl = toAbsoluteUrl(guide.image);
+
+      return {
+        url: `${SITE_URL}/guides/${guide.slug}`,
+        ...(lastModified ? { lastModified } : {}),
+        ...(imageUrl ? { images: [imageUrl] } : {}),
+        changeFrequency: "monthly" as const,
+        priority: 0.6,
+      };
+    }),
 
     ...categories.map((category, index) => {
       const lastModified = categoryDates[index];

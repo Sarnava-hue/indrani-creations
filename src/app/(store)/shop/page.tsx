@@ -4,36 +4,11 @@ import { ProductCard } from "@/components/store/product-card";
 import { ShopSort } from "@/components/store/shop-sort";
 import { getActiveCategories } from "@/lib/store/categories";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
-import { SITE_URL } from "@/lib/config/site";
+import {
+  buildShopMetadata,
+  normalizeShopSearchParams,
+} from "@/lib/seo/shop-metadata";
 import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Shop Sarees & Jewellery Online",
-  description:
-    "Explore sarees, bangles, earrings, and necklaces at Indrani Creations. Discover elegant styles for weddings, festivals, celebrations, and everyday wear.",
-  alternates: {
-    canonical: "/shop",
-  },
-  openGraph: {
-    type: "website",
-    url: `${SITE_URL}/shop`,
-    siteName: "Indrani Creations",
-    title: "Shop Sarees & Jewellery Online | Indrani Creations",
-    description:
-      "Discover sarees and jewellery for special occasions and everyday elegance. Explore the collection at Indrani Creations.",
-    locale: "en_IN",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Shop Sarees & Jewellery Online | Indrani Creations",
-    description:
-      "Explore sarees, bangles, earrings, and necklaces at Indrani Creations.",
-  },
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
 
 const PAGE_SIZE = 8;
 
@@ -49,43 +24,27 @@ type ShopPageProps = {
   }>;
 };
 
+export async function generateMetadata({
+  searchParams,
+}: ShopPageProps): Promise<Metadata> {
+  return buildShopMetadata(await searchParams);
+}
+
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const params = await searchParams;
 
-  const query = params.q?.trim() ?? "";
-  const categorySlug = params.category?.trim() ?? "";
-  const allowedSorts = ["newest", "price-low", "price-high", "name"] as const;
-  const sort = allowedSorts.includes(
-    params.sort as (typeof allowedSorts)[number],
-  )
-    ? (params.sort as (typeof allowedSorts)[number])
-    : "newest";
-  const minPrice = params.minPrice?.trim() ?? "";
-  const maxPrice = params.maxPrice?.trim() ?? "";
-  const inStock = params.inStock === "1";
-
-  const hasActiveFilters = Boolean(
-    query ||
-    categorySlug ||
-    minPrice ||
-    maxPrice ||
-    inStock ||
-    sort !== "newest",
-  );
-
-  const minPaise =
-    minPrice !== "" && Number.isFinite(Number(minPrice))
-      ? Math.max(0, Math.round(Number(minPrice) * 100))
-      : null;
-
-  const maxPaise =
-    maxPrice !== "" && Number.isFinite(Number(maxPrice))
-      ? Math.max(0, Math.round(Number(maxPrice) * 100))
-      : null;
-
-  const requestedPage = Number.parseInt(params.page ?? "1", 10);
-  const currentPage =
-    Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const {
+    query,
+    categorySlug,
+    sort,
+    minPrice,
+    maxPrice,
+    inStock,
+    minPaise,
+    maxPaise,
+    currentPage,
+    hasActiveFilters,
+  } = normalizeShopSearchParams(params);
 
   // ------------------------------------------------------------
   // Categories (reuses request-cached getActiveCategories)
@@ -682,6 +641,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             {safePage > 1 && (
               <Link
                 href={buildUrl(safePage - 1)}
+                rel="prev"
                 className="border border-black/15 px-5 py-3 text-xs uppercase tracking-[0.15em] transition hover:border-neutral-900"
               >
                 Previous
@@ -710,6 +670,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             {safePage < totalPages && (
               <Link
                 href={buildUrl(safePage + 1)}
+                rel="next"
                 className="border border-black/15 px-5 py-3 text-xs uppercase tracking-[0.15em] transition hover:border-neutral-900"
               >
                 Next

@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const googleVerification =
+  process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim() || undefined;
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
 
@@ -27,6 +30,8 @@ export const metadata: Metadata = {
     "Discover beautiful sarees for festivals, weddings, celebrations, and everyday elegance at Indrani Creations. Explore our collection and shop online.",
 
   applicationName: "Indrani Creations",
+
+  ...(googleVerification ? { verification: { google: googleVerification } } : {}),
 
   openGraph: {
     type: "website",

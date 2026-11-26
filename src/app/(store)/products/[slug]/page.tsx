@@ -8,6 +8,11 @@ import { AddToBagButton } from "@/components/store/add-to-bag-button";
 import { ProductGallery } from "@/components/store/product-gallery";
 import { ProductCard } from "@/components/store/product-card";
 import { CollectionLinksStrip } from "@/components/store/collection-links-strip";
+import { JsonLdScript } from "@/components/seo/json-ld-script";
+import {
+  buildBreadcrumbJsonLd,
+  buildProductJsonLd,
+} from "@/lib/seo/structured-data";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
 import { getActiveCategories } from "@/lib/store/categories";
 import { SITE_URL } from "@/lib/config/site";
@@ -220,88 +225,38 @@ export default async function ProductPage({ params }: ProductPageProps) {
         ? [category]
         : [];
 
-  const breadcrumbJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      {
-        "@type": "ListItem",
-        position: 1,
-        name: "Home",
-        item: SITE_URL,
-      },
-      ...categoryTrail.map((item, index) => ({
-        "@type": "ListItem",
-        position: index + 2,
-        name: item.name,
-        item: `${SITE_URL}${buildCollectionHref(item.slug)}`,
-      })),
-      {
-        "@type": "ListItem",
-        position: categoryTrail.length + 2,
-        name: product.name,
-        item: `${SITE_URL}/products/${product.slug}`,
-      },
-    ],
-  };
-
-  const breadcrumbJsonLdString = JSON.stringify(breadcrumbJsonLd).replace(
-    /</g,
-    "\\u003c",
-  );
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Home", url: SITE_URL },
+    ...categoryTrail.map((item) => ({
+      name: item.name,
+      url: `${SITE_URL}${buildCollectionHref(item.slug)}`,
+    })),
+    {
+      name: product.name,
+      url: `${SITE_URL}/products/${product.slug}`,
+    },
+  ]);
 
   const availableQuantity =
     (inventory?.quantity ?? 0) - (inventory?.reserved ?? 0);
 
   const isAvailable = availableQuantity > 0;
 
-  const productJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.name,
-    description:
-      product.description ||
-      product.shortDescription ||
-      `Discover ${product.name} at Indrani Creations.`,
-    sku: product.sku,
-    url: `${SITE_URL}/products/${product.slug}`,
-    image: images.map((image) => new URL(image.url, SITE_URL).href),
-    ...(category ? { category: category.name } : {}),
-    offers: {
-      "@type": "Offer",
-      url: `${SITE_URL}/products/${product.slug}`,
-      priceCurrency: "INR",
-      price: (product.pricePaise / 100).toFixed(2),
-      availability: isAvailable
-        ? "https://schema.org/InStock"
-        : "https://schema.org/OutOfStock",
-      itemCondition: "https://schema.org/NewCondition",
-    },
-  };
-
-  const productJsonLdString = JSON.stringify(productJsonLd).replace(
-    /</g,
-    "\\u003c",
-  );
+  const productJsonLd = buildProductJsonLd({
+    siteUrl: SITE_URL,
+    product,
+    images,
+    categoryName: category?.name,
+    availableQuantity,
+  });
 
   const isSaree =
     Boolean(product.sareeLength) || Boolean(category?.slug.includes("saree"));
 
   return (
     <main className="min-h-screen bg-[#f7f4ef]">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: productJsonLdString,
-        }}
-      />
-
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: breadcrumbJsonLdString,
-        }}
-      />
+      <JsonLdScript data={productJsonLd} />
+      <JsonLdScript data={breadcrumbJsonLd} />
 
       {/* ------------------------------------------------------ */}
       {/* Breadcrumb */}

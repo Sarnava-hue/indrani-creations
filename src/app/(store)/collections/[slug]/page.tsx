@@ -5,6 +5,11 @@ import { notFound } from "next/navigation";
 
 import { db } from "@/lib/db";
 import { CollectionLinksStrip } from "@/components/store/collection-links-strip";
+import { JsonLdScript } from "@/components/seo/json-ld-script";
+import {
+  buildBreadcrumbJsonLd,
+  buildCollectionPageJsonLd,
+} from "@/lib/seo/structured-data";
 import { ProductCard } from "@/components/store/product-card";
 import { getActiveCategories } from "@/lib/store/categories";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
@@ -151,38 +156,25 @@ export default async function CollectionPage({ params }: PageProps) {
 
   const breadcrumbChain = ancestorChain.length > 0 ? ancestorChain : [category];
 
-  const breadcrumbJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      {
-        "@type": "ListItem",
-        position: 1,
-        name: "Home",
-        item: SITE_URL,
-      },
-      ...breadcrumbChain.map((item, index) => ({
-        "@type": "ListItem",
-        position: index + 2,
-        name: item.name,
-        item: `${SITE_URL}${buildCollectionHref(item.slug)}`,
-      })),
-    ],
-  };
+  const breadcrumbJsonLd = buildBreadcrumbJsonLd([
+    { name: "Home", url: SITE_URL },
+    ...breadcrumbChain.map((item) => ({
+      name: item.name,
+      url: `${SITE_URL}${buildCollectionHref(item.slug)}`,
+    })),
+  ]);
 
-  const breadcrumbJsonLdString = JSON.stringify(breadcrumbJsonLd).replace(
-    /</g,
-    "\\u003c",
-  );
+  const collectionPageJsonLd = buildCollectionPageJsonLd({
+    siteUrl: SITE_URL,
+    category,
+    description: introDescription,
+    products,
+  });
 
   return (
     <main className="min-h-screen bg-white">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: breadcrumbJsonLdString,
-        }}
-      />
+      <JsonLdScript data={collectionPageJsonLd} />
+      <JsonLdScript data={breadcrumbJsonLd} />
 
       {/* Collection heading */}
       <section className="border-b border-neutral-200">

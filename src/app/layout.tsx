@@ -3,10 +3,12 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/store/cart-provider";
 import { SITE_URL } from "@/lib/config/site";
+import { JsonLdScript } from "@/components/seo/json-ld-script";
 import {
   DEFAULT_OG_IMAGE_ALT,
   DEFAULT_OG_IMAGE_PATH,
 } from "@/lib/seo/page-metadata";
+import { buildSiteGraphJsonLd } from "@/lib/seo/structured-data";
 import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
@@ -79,12 +81,11 @@ export const metadata: Metadata = {
   },
 };
 
-const organizationJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "Indrani Creations",
-  url: SITE_URL,
-};
+const siteGraphJsonLd = buildSiteGraphJsonLd({
+  siteUrl: SITE_URL,
+  contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL,
+  contactPhone: process.env.NEXT_PUBLIC_CONTACT_PHONE,
+});
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -93,12 +94,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(organizationJsonLd).replace(/</g, "\\u003c"),
-          }}
-        />
+        <JsonLdScript data={siteGraphJsonLd} />
 
         <CartProvider>
           {children}

@@ -5,6 +5,10 @@ import { ShopSort } from "@/components/store/shop-sort";
 import { getActiveCategories } from "@/lib/store/categories";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
 import {
+  buildCollectionHref,
+  getDescendantCategoryIds,
+} from "@/lib/seo/category-links";
+import {
   buildShopMetadata,
   normalizeShopSearchParams,
 } from "@/lib/seo/shop-metadata";
@@ -66,26 +70,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     if (!selectedCategory) {
       categoryIds = [];
     } else {
-      const descendants = new Set<number>([selectedCategory.id]);
-
-      let foundNew = true;
-
-      while (foundNew) {
-        foundNew = false;
-
-        for (const category of categories) {
-          if (
-            category.parentId !== null &&
-            descendants.has(category.parentId) &&
-            !descendants.has(category.id)
-          ) {
-            descendants.add(category.id);
-            foundNew = true;
-          }
-        }
-      }
-
-      categoryIds = [...descendants];
+      categoryIds = getDescendantCategoryIds(categories, selectedCategory.id);
     }
   }
 
@@ -599,11 +584,22 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             </h2>
           </div>
 
-          {totalProducts > 0 && (
-            <p className="hidden text-sm text-neutral-500 sm:block">
-              Page {safePage} of {totalPages}
-            </p>
-          )}
+          <div className="flex items-center gap-6">
+            {categorySlug && (
+              <Link
+                href={buildCollectionHref(categorySlug)}
+                className="border-b border-neutral-400 pb-1 text-xs uppercase tracking-[0.15em] text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-900"
+              >
+                Collection page →
+              </Link>
+            )}
+
+            {totalProducts > 0 && (
+              <p className="hidden text-sm text-neutral-500 sm:block">
+                Page {safePage} of {totalPages}
+              </p>
+            )}
+          </div>
         </div>
 
         {paginatedProducts.length > 0 ? (

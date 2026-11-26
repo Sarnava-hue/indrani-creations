@@ -5,6 +5,10 @@ import { db } from "@/lib/db";
 import { getActiveCategories } from "@/lib/store/categories";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
 import { buildStorePageMetadata } from "@/lib/seo/page-metadata";
+import {
+  buildCollectionHref,
+  findCategoryBySlugCandidates,
+} from "@/lib/seo/category-links";
 import Image from "next/image";
 
 export const metadata: Metadata = buildStorePageMetadata({
@@ -78,19 +82,16 @@ export default async function HomePage() {
       .all(),
   ]);
 
-  const activeCategorySlugs = new Set(
-    activeCategories.map((category) => category.slug),
-  );
-
   const collections = baseCollections.map((collection) => {
-    const matchedSlug = collection.slugCandidates.find((slug) =>
-      activeCategorySlugs.has(slug),
+    const matchedCategory = findCategoryBySlugCandidates(
+      activeCategories,
+      collection.slugCandidates,
     );
 
     return {
       ...collection,
-      href: matchedSlug
-        ? `/shop?category=${matchedSlug}`
+      href: matchedCategory
+        ? buildCollectionHref(matchedCategory.slug)
         : collection.fallbackHref,
     };
   });

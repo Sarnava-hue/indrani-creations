@@ -5,16 +5,46 @@ import { MobileMenu } from "@/components/store/mobile-menu";
 import AccountButton from "@/components/store/account-button";
 import { CartLinkBadge } from "@/components/store/cart-link-badge";
 import { getActiveCategories } from "@/lib/store/categories";
+import {
+  buildCollectionHref,
+  findCategoryBySlugCandidates,
+} from "@/lib/seo/category-links";
 
 export async function Header() {
   const categories = await getActiveCategories();
 
   const mainCategories = [
-    { name: "Sarees", href: "/shop" },
-    { name: "Bangles", href: "/collections/bangles" },
-    { name: "Earrings", href: "/collections/earrings" },
-    { name: "Necklaces", href: "/collections/necklaces" },
-  ];
+    {
+      name: "Sarees",
+      slugCandidates: ["all-sarees", "silk-sarees"],
+      fallbackHref: "/shop",
+    },
+    {
+      name: "Bangles",
+      slugCandidates: ["bangles"],
+      fallbackHref: "/collections/bangles",
+    },
+    {
+      name: "Earrings",
+      slugCandidates: ["earrings"],
+      fallbackHref: "/collections/earrings",
+    },
+    {
+      name: "Necklaces",
+      slugCandidates: ["necklaces"],
+      fallbackHref: "/collections/necklaces",
+    },
+  ].map((item) => {
+    const matched = findCategoryBySlugCandidates(
+      categories,
+      item.slugCandidates,
+    );
+
+    return {
+      name: item.name,
+      href: matched ? buildCollectionHref(matched.slug) : item.fallbackHref,
+    };
+  });
 
   return (
     <header className="sticky top-0 z-50 border-b border-stone-200/70 bg-[#faf9f6]/95 backdrop-blur">

@@ -7,8 +7,15 @@ import { WishlistButton } from "@/components/store/wishlist-button";
 import { AddToBagButton } from "@/components/store/add-to-bag-button";
 import { ProductGallery } from "@/components/store/product-gallery";
 import { ProductCard } from "@/components/store/product-card";
+import { CollectionLinksStrip } from "@/components/store/collection-links-strip";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
+import { getActiveCategories } from "@/lib/store/categories";
 import { SITE_URL } from "@/lib/config/site";
+import {
+  buildCollectionHref,
+  getCategoryAncestorChain,
+  getCrossCollectionLinks,
+} from "@/lib/seo/category-links";
 import {
   buildProductMetaDescription,
   buildStorePageMetadata,
@@ -53,7 +60,14 @@ const getProduct = cache(async (slug: string) => {
     return null;
   }
 
-  const [images, inventory, category, relatedCandidates] = await Promise.all([
+  const [
+    images,
+    inventory,
+    category,
+    activeCategories,
+    relatedCandidates,
+    complementaryCandidates,
+  ] = await Promise.all([
     db.orm.public.ProductImage.where({
       productId: product.id,
     })
@@ -70,8 +84,10 @@ const getProduct = cache(async (slug: string) => {
     db.orm.public.Category.where({
       id: product.categoryId,
     })
-      .select("name", "slug")
+      .select("id", "name", "slug")
       .first(),
+
+    getActiveCategories(),
 
     db.orm.public.Product.where({
       categoryId: product.categoryId,
@@ -89,6 +105,23 @@ const getProduct = cache(async (slug: string) => {
       .orderBy((item) => item.createdAt.desc())
       .limit(5)
       .all(),
+
+    db.orm.public.Product.where({
+      isActive: true,
+    })
+      .where((item) => item.categoryId.neq(product.categoryId))
+      .select(
+        "id",
+        "name",
+        "slug",
+        "pricePaise",
+        "compareAtPricePaise",
+        "isOneOfOne",
+        "isFeatured",
+      )
+      .orderBy((item) => item.createdAt.desc())
+      .limit(4)
+      .all(),
   ]);
 
   const primaryImage =
@@ -98,7 +131,24 @@ const getProduct = cache(async (slug: string) => {
     .filter((item) => item.id !== product.id)
     .slice(0, 4);
 
-  const relatedProductsWithImages = await attachPrimaryImages(relatedProducts);
+  const combinedWithImages = await attachPrimaryImages([
+    ...relatedProducts,
+    ...complementaryCandidates,
+  ]);
+  const relatedProductsWithImages = combinedWithImages.slice(
+    0,
+    relatedProducts.length,
+  );
+  const complementaryProductsWithImages = combinedWithImages.slice(
+    relatedProducts.length,
+  );
+
+  const ancestorChain = category
+    ? getCategoryAncestorChain(activeCategories, category.id)
+    : [];
+  const otherCollections = category
+    ? getCrossCollectionLinks(activeCategories, category.id, 6)
+    : activeCategories.slice(0, 6);
 
   return {
     product,
@@ -106,7 +156,10 @@ const getProduct = cache(async (slug: string) => {
     primaryImage,
     inventory,
     category,
+    ancestorChain,
+    otherCollections,
     relatedProductsWithImages,
+    complementaryProductsWithImages,
   };
 });
 
@@ -154,8 +207,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
     primaryImage,
     inventory,
     category,
+    ancestorChain,
+    otherCollections,
     relatedProductsWithImages,
+    complementaryProductsWithImages,
   } = result;
+
+  const categoryTrail =
+    ancestorChain.length > 0
+      ? ancestorChain
+      : category
+        ? [category]
+        : [];
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -167,19 +230,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
         name: "Home",
         item: SITE_URL,
       },
-      ...(category
-        ? [
-            {
-              "@type": "ListItem",
-              position: 2,
-              name: category.name,
-              item: `${SITE_URL}/collections/${category.slug}`,
-            },
-          ]
-        : []),
+      ...categoryTrail.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 2,
+        name: item.name,
+        item: `${SITE_URL}${buildCollectionHref(item.slug)}`,
+      })),
       {
         "@type": "ListItem",
-        position: category ? 3 : 2,
+        position: categoryTrail.length + 2,
         name: product.name,
         item: `${SITE_URL}/products/${product.slug}`,
       },
@@ -249,7 +308,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
       {/* ------------------------------------------------------ */}
 
       <div className="mx-auto max-w-7xl px-6 pt-8 lg:px-8">
-        <nav className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-neutral-500">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.16em] text-neutral-500"
+        >
           <Link href="/" className="transition hover:text-neutral-900">
             Home
           </Link>
@@ -260,18 +322,18 @@ export default async function ProductPage({ params }: ProductPageProps) {
             Shop
           </Link>
 
-          {category && (
-            <>
+          {categoryTrail.map((item) => (
+            <span key={item.slug} className="inline-flex items-center gap-2">
               <span>/</span>
 
               <Link
-                href={`/shop?category=${category.slug}`}
+                href={buildCollectionHref(item.slug)}
                 className="transition hover:text-neutral-900"
               >
-                {category.name}
+                {item.name}
               </Link>
-            </>
-          )}
+            </span>
+          ))}
 
           <span>/</span>
 
@@ -518,7 +580,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
               {category && (
                 <Link
-                  href={`/shop?category=${category.slug}`}
+                  href={buildCollectionHref(category.slug)}
                   className="shrink-0 border-b border-neutral-400 pb-1 text-xs uppercase tracking-[0.15em] text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-900"
                 >
                   View all
@@ -533,7 +595,42 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           </div>
         )}
+
+        {complementaryProductsWithImages.length > 0 && (
+          <div className="mt-24 border-t border-black/10 pt-16">
+            <div className="mb-10 flex items-end justify-between gap-6">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-neutral-500">
+                  Complete the look
+                </p>
+
+                <h2 className="mt-3 text-3xl font-light tracking-tight text-neutral-900">
+                  Pair it with other collections
+                </h2>
+              </div>
+
+              <Link
+                href="/shop"
+                className="shrink-0 border-b border-neutral-400 pb-1 text-xs uppercase tracking-[0.15em] text-neutral-700 transition hover:border-neutral-900 hover:text-neutral-900"
+              >
+                Explore all
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-6">
+              {complementaryProductsWithImages.map((item) => (
+                <ProductCard key={item.id} product={item} />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
+
+      <CollectionLinksStrip
+        collections={otherCollections}
+        eyebrow="Explore more"
+        heading="Browse all Indrani Creations collections"
+      />
     </main>
   );
 }

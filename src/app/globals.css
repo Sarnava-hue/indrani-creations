@@ -101,7 +101,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .about-testimonial-track {
+  .about-testimonial-track,
+  .hero-image-track {
     animation: none;
   }
 }

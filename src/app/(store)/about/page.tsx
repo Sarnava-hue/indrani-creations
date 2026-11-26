@@ -184,11 +184,12 @@ export default function AboutPage() {
 
       {/* SERVICE HIGHLIGHTS */}
       <section className="mx-auto grid max-w-[1440px] gap-12 px-6 py-16 md:grid-cols-3 md:gap-8 md:px-12 md:py-20">
-        {services.map((service) => (
+        {services.map((service, index) => (
           <article key={service.title} className="text-center">
             <ImagePlaceholder
               src={service.image}
               alt={service.imageAlt}
+              priority={index === 0}
               className="aspect-[1.5/1] w-full"
             />
             <div className="mt-7 flex justify-center">
@@ -208,7 +209,6 @@ export default function AboutPage() {
           <ImagePlaceholder
             src="/images/about/brand-story.jpeg"
             alt="Indrani Creations traditional saree collection"
-            priority
             className="aspect-[640/821] w-full"
           />
 

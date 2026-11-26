@@ -54,6 +54,7 @@ export async function uploadProductImage({
       access: "public",
       addRandomSuffix: false,
       contentType,
+      cacheControlMaxAge: 31536000,
     });
 
     return {

@@ -19,8 +19,17 @@ const securityHeaders = [
   },
 ];
 
+const imageCacheHeaders = [
+  {
+    key: "Cache-Control",
+    value: "public, max-age=86400, stale-while-revalidate=604800",
+  },
+];
+
 const nextConfig: NextConfig = {
   images: {
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 2678400,
     remotePatterns: [
       {
         protocol: "https",
@@ -34,6 +43,14 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      {
+        source: "/images/:path*",
+        headers: imageCacheHeaders,
+      },
+      {
+        source: "/products/:path*",
+        headers: imageCacheHeaders,
+      },
       {
         source: "/(.*)",
         headers: securityHeaders,

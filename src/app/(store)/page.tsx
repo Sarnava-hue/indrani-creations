@@ -351,7 +351,6 @@ export default async function HomePage() {
             src="/images/about/philosophy.jpeg"
             alt="Traditional saree details from Indrani Creations"
             fill
-            priority
             sizes="(max-width: 768px) 100vw, 50vw"
             className="object-cover"
           />

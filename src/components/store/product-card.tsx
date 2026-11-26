@@ -21,9 +21,10 @@ type ProductCardProps = {
       altText: string | null;
     } | null;
   };
+  priority?: boolean;
 };
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, priority = false }: ProductCardProps) {
   return (
     <article className="group">
       <div className="relative overflow-hidden bg-neutral-100">
@@ -40,6 +41,7 @@ export function ProductCard({ product }: ProductCardProps) {
                   pattern: product.pattern,
                 })}
                 fill
+                priority={priority}
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 className="object-cover transition duration-700 ease-out group-hover:scale-[1.03]"
               />

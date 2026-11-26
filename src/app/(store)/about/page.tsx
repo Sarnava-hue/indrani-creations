@@ -10,6 +10,8 @@ const services = [
       "All orders are carefully packed and dispatched within 2–4 business days, ensuring safe and reliable delivery to your doorstep.",
     icon: "shipping",
     image: "/images/about/craftsmanship.jpeg",
+    imageAlt:
+      "Close-up craftsmanship of an Indrani Creations woven silk saree and zari border",
   },
   {
     title: "Easy Exchange Policy",
@@ -17,6 +19,8 @@ const services = [
       "We do not offer returns. However, in case of any damage or defect, exchanges are available within 15 days of delivery. All products undergo strict quality checks before dispatch.",
     icon: "exchange",
     image: "/images/about/why-choose-us.jpeg",
+    imageAlt:
+      "Curated Indian traditional sarees and jewellery packed by Indrani Creations",
   },
   {
     title: "Secure Prepaid Payments",
@@ -24,6 +28,8 @@ const services = [
       "We offer safe and secure prepaid payment options for a smooth and hassle-free shopping experience. All transactions are protected.",
     icon: "shield",
     image: "/images/about/bangle.jpeg",
+    imageAlt:
+      "Handcrafted artisanal Indrani Creations bangles and festive stone details",
   },
 ];
 
@@ -182,7 +188,7 @@ export default function AboutPage() {
           <article key={service.title} className="text-center">
             <ImagePlaceholder
               src={service.image}
-              alt={service.title}
+              alt={service.imageAlt}
               className="aspect-[1.5/1] w-full"
             />
             <div className="mt-7 flex justify-center">

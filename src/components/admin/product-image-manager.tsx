@@ -379,7 +379,7 @@ export function ProductImageManager({ productId }: ProductImageManagerProps) {
                     <input
                       id={`alt-${image.id}`}
                       defaultValue={image.altText ?? ""}
-                      placeholder="Describe this saree image"
+                      placeholder="Describe colour, fabric, border, or craft detail"
                       className="admin-input"
                       disabled={activeAction !== null && !altLoading}
 
@@ -394,7 +394,7 @@ export function ProductImageManager({ productId }: ProductImageManagerProps) {
                     />
 
                     <p className="mt-2 text-xs text-neutral-400">
-                      Saved automatically when you leave the field.
+                      Helps Google Images &amp; screen readers. Auto-saves on blur.
                     </p>
                   </div>
 

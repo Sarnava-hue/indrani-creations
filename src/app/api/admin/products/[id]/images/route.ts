@@ -5,6 +5,10 @@ import { requireAdminApi } from "@/lib/auth/admin";
 import { db } from "@/lib/db";
 import { detectImageFormat } from "@/lib/security/image-validation";
 import {
+  buildProductImageAlt,
+  buildProductImageFilename,
+} from "@/lib/seo/image-seo";
+import {
   deleteStoredProductImage,
   ProductImageStorageConfigError,
   uploadProductImage,
@@ -43,13 +47,11 @@ export async function GET(
       );
     }
 
-    const products =
-      await db.orm.public.Product
-        .where({ id: productId })
-        .select("id")
-        .all();
+    const product = await db.orm.public.Product.where({ id: productId })
+      .select("id")
+      .first();
 
-    if (products.length === 0) {
+    if (!product) {
       return NextResponse.json(
         { error: "Product not found." },
         { status: 404 },
@@ -109,13 +111,19 @@ export async function POST(
       );
     }
 
-    const products =
-      await db.orm.public.Product
-        .where({ id: productId })
-        .select("id")
-        .all();
+    const product = await db.orm.public.Product.where({ id: productId })
+      .select(
+        "id",
+        "name",
+        "slug",
+        "fabric",
+        "color",
+        "pattern",
+        "occasion",
+      )
+      .first();
 
-    if (products.length === 0) {
+    if (!product) {
       return NextResponse.json(
         { error: "Product not found." },
         { status: 404 },
@@ -199,7 +207,11 @@ export async function POST(
       );
     }
 
-    const filename = `${crypto.randomUUID()}.${detectedFormat.extension}`;
+    const filename = buildProductImageFilename({
+      productSlug: product.slug,
+      randomSuffix: crypto.randomUUID().slice(0, 8),
+      extension: detectedFormat.extension,
+    });
 
     const uploaded = await uploadProductImage({
       productId,
@@ -232,11 +244,22 @@ export async function POST(
           -1,
         ) + 1;
 
+      const resolvedAltText =
+        altText ??
+        buildProductImageAlt({
+          productName: product.name,
+          fabric: product.fabric,
+          color: product.color,
+          pattern: product.pattern,
+          occasion: product.occasion,
+          viewIndex: nextSortOrder,
+        });
+
       const image =
         await db.orm.public.ProductImage.create({
           productId,
           url: uploaded.url,
-          altText,
+          altText: resolvedAltText,
           sortOrder: nextSortOrder,
           isPrimary: isFirstImage,
         });

@@ -109,7 +109,7 @@ export default async function HomePage() {
             <div className="hero-image-slide">
               <Image
                 src="/images/home/hero-1.jpeg"
-                alt="Indrani Creations saree collection"
+                alt="Indrani Creations handcrafted festive silk saree drape"
                 fill
                 priority
                 sizes="100vw"
@@ -120,7 +120,7 @@ export default async function HomePage() {
             <div className="hero-image-slide">
               <Image
                 src="/images/home/hero-2.jpeg"
-                alt="Indrani Creations traditional saree"
+                alt="Traditional handloom saree weave with ornate border details"
                 fill
                 sizes="100vw"
                 className="object-cover"
@@ -130,7 +130,7 @@ export default async function HomePage() {
             <div className="hero-image-slide">
               <Image
                 src="/images/home/hero-3.jpeg"
-                alt="Indrani Creations handcrafted collection"
+                alt="Artisanal Indian saree, bangles, and jewellery styling edit"
                 fill
                 sizes="100vw"
                 className="object-cover"
@@ -140,7 +140,7 @@ export default async function HomePage() {
             <div className="hero-image-slide">
               <Image
                 src="/images/home/hero-4.jpeg"
-                alt="Indrani Creations festive collection"
+                alt="Festive bridal saree and handcrafted Indian necklace showcase"
                 fill
                 sizes="100vw"
                 className="object-cover"
@@ -150,7 +150,7 @@ export default async function HomePage() {
             <div className="hero-image-slide">
               <Image
                 src="/images/home/hero-1.jpeg"
-                alt="Indrani Creations saree collection"
+                alt="Indrani Creations handcrafted festive silk saree drape"
                 fill
                 sizes="100vw"
                 className="object-cover"

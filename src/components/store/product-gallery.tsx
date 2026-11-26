@@ -3,6 +3,8 @@
 import Image from "next/image";
 import { useState } from "react";
 
+import { buildProductImageAlt } from "@/lib/seo/image-seo";
+
 type GalleryImage = {
   id: number;
   url: string;
@@ -13,26 +15,21 @@ type GalleryImage = {
 
 type ProductGalleryProps = {
   productName: string;
+  fabric?: string | null;
+  color?: string | null;
+  pattern?: string | null;
+  occasion?: string | null;
   images: GalleryImage[];
 };
 
-function getImageAlt(
-  altText: string | null,
-  productName: string,
-  index: number,
-) {
-  const cleanedAlt = altText?.trim();
-
-  if (cleanedAlt) {
-    return cleanedAlt;
-  }
-
-  return index === 0
-    ? `${productName} - product photo`
-    : `${productName} - product photo ${index + 1}`;
-}
-
-export function ProductGallery({ productName, images }: ProductGalleryProps) {
+export function ProductGallery({
+  productName,
+  fabric,
+  color,
+  pattern,
+  occasion,
+  images,
+}: ProductGalleryProps) {
   const orderedImages = [...images].sort((a, b) => a.sortOrder - b.sortOrder);
 
   const initialIndex = Math.max(
@@ -83,9 +80,17 @@ export function ProductGallery({ productName, images }: ProductGalleryProps) {
         <div className="relative aspect-3/4">
           <Image
             src={activeImage.url}
-            alt={getImageAlt(activeImage.altText, productName, activeIndex)}
+            alt={buildProductImageAlt({
+              altText: activeImage.altText,
+              productName,
+              fabric,
+              color,
+              pattern,
+              occasion,
+              viewIndex: activeIndex,
+            })}
             fill
-            priority={activeIndex === 0}
+            priority={activeIndex === initialIndex}
             sizes="(max-width: 1024px) 100vw, 55vw"
             className="object-cover transition duration-500"
           />
@@ -148,7 +153,15 @@ export function ProductGallery({ productName, images }: ProductGalleryProps) {
               >
                 <Image
                   src={image.url}
-                  alt={getImageAlt(image.altText, productName, index)}
+                  alt={buildProductImageAlt({
+                    altText: image.altText,
+                    productName,
+                    fabric,
+                    color,
+                    pattern,
+                    occasion,
+                    viewIndex: index,
+                  })}
                   fill
                   sizes="(max-width: 640px) 25vw, 20vw"
                   className="object-cover"

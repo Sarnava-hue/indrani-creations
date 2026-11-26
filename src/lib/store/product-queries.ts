@@ -9,18 +9,14 @@ export type ProductPrimaryImage = {
   isPrimary: boolean;
 };
 
-/**
- * Loads the primary (or lowest sortOrder fallback) image for every product ID
- * in a single batched query instead of one query per product.
- */
-export async function getPrimaryImagesByProductIds(
+export async function getGalleryImagesByProductIds(
   productIds: number[],
-): Promise<Map<number, ProductPrimaryImage>> {
+): Promise<Map<number, ProductPrimaryImage[]>> {
   const uniqueIds = [...new Set(productIds)];
-  const imageMap = new Map<number, ProductPrimaryImage>();
+  const galleryMap = new Map<number, ProductPrimaryImage[]>();
 
   if (uniqueIds.length === 0) {
-    return imageMap;
+    return galleryMap;
   }
 
   const images = await db.orm.public.ProductImage.where((image) =>
@@ -31,16 +27,43 @@ export async function getPrimaryImagesByProductIds(
     .all();
 
   for (const image of images) {
-    const existing = imageMap.get(image.productId);
+    const entry: ProductPrimaryImage = {
+      id: image.id,
+      url: image.url,
+      altText: image.altText,
+      sortOrder: image.sortOrder,
+      isPrimary: image.isPrimary,
+    };
 
-    if (!existing || (image.isPrimary && !existing.isPrimary)) {
-      imageMap.set(image.productId, {
-        id: image.id,
-        url: image.url,
-        altText: image.altText,
-        sortOrder: image.sortOrder,
-        isPrimary: image.isPrimary,
-      });
+    const existing = galleryMap.get(image.productId);
+
+    if (existing) {
+      if (entry.isPrimary) {
+        existing.unshift(entry);
+      } else {
+        existing.push(entry);
+      }
+    } else {
+      galleryMap.set(image.productId, [entry]);
+    }
+  }
+
+  return galleryMap;
+}
+
+/**
+ * Loads the primary (or lowest sortOrder fallback) image for every product ID
+ * in a single batched query instead of one query per product.
+ */
+export async function getPrimaryImagesByProductIds(
+  productIds: number[],
+): Promise<Map<number, ProductPrimaryImage>> {
+  const galleryMap = await getGalleryImagesByProductIds(productIds);
+  const imageMap = new Map<number, ProductPrimaryImage>();
+
+  for (const [productId, list] of galleryMap.entries()) {
+    if (list[0]) {
+      imageMap.set(productId, list[0]);
     }
   }
 

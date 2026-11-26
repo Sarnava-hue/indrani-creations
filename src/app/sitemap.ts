@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { SITE_URL } from "@/lib/config/site";
 import { db } from "@/lib/db";
-import { getPrimaryImagesByProductIds } from "@/lib/store/product-queries";
+import { getGalleryImagesByProductIds } from "@/lib/store/product-queries";
 
 export const revalidate = 3600;
 
@@ -58,7 +58,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .all(),
   ]);
 
-  const primaryImagesMap = await getPrimaryImagesByProductIds(
+  const galleryImagesMap = await getGalleryImagesByProductIds(
     products.map((product) => product.id),
   );
 
@@ -115,15 +115,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     ...products.map((product, index) => {
       const lastModified = productDates[index];
-      const primaryImage = primaryImagesMap.get(product.id);
-      const primaryImageUrl = primaryImage
-        ? toAbsoluteUrl(primaryImage.url)
-        : undefined;
+      const galleryUrls = [
+        ...new Set(
+          (galleryImagesMap.get(product.id) ?? [])
+            .map((image) => toAbsoluteUrl(image.url))
+            .filter((url): url is string => Boolean(url)),
+        ),
+      ];
 
       return {
         url: `${SITE_URL}/products/${product.slug}`,
         ...(lastModified ? { lastModified } : {}),
-        ...(primaryImageUrl ? { images: [primaryImageUrl] } : {}),
+        ...(galleryUrls.length > 0 ? { images: galleryUrls } : {}),
         changeFrequency: "weekly" as const,
         priority: 0.7,
       };

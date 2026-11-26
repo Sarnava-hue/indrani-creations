@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { formatINR } from "@/lib/utils/currency";
 import { WishlistButton } from "@/components/store/wishlist-button";
+import { buildProductImageAlt } from "@/lib/seo/image-seo";
 
 type ProductCardProps = {
   product: {
@@ -12,6 +13,9 @@ type ProductCardProps = {
     pricePaise: number;
     compareAtPricePaise: number | null;
     isOneOfOne: boolean;
+    fabric?: string | null;
+    color?: string | null;
+    pattern?: string | null;
     primaryImage?: {
       url: string;
       altText: string | null;
@@ -28,7 +32,13 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.primaryImage ? (
               <Image
                 src={product.primaryImage.url}
-                alt={product.primaryImage.altText ?? product.name}
+                alt={buildProductImageAlt({
+                  altText: product.primaryImage.altText,
+                  productName: product.name,
+                  fabric: product.fabric,
+                  color: product.color,
+                  pattern: product.pattern,
+                })}
                 fill
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                 className="object-cover transition duration-700 ease-out group-hover:scale-[1.03]"

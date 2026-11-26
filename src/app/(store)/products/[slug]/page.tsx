@@ -104,6 +104,9 @@ const getProduct = cache(async (slug: string) => {
         "slug",
         "pricePaise",
         "compareAtPricePaise",
+        "fabric",
+        "color",
+        "pattern",
         "isOneOfOne",
         "isFeatured",
       )
@@ -121,6 +124,9 @@ const getProduct = cache(async (slug: string) => {
         "slug",
         "pricePaise",
         "compareAtPricePaise",
+        "fabric",
+        "color",
+        "pattern",
         "isOneOfOne",
         "isFeatured",
       )
@@ -308,7 +314,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
           {/* Gallery */}
           {/* -------------------------------------------------- */}
 
-          <ProductGallery productName={product.name} images={images} />
+          <ProductGallery
+            productName={product.name}
+            fabric={product.fabric}
+            color={product.color}
+            pattern={product.pattern}
+            occasion={product.occasion}
+            images={images}
+          />
 
           {/* -------------------------------------------------- */}
           {/* Product Information */}

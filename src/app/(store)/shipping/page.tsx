@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buildStorePageMetadata } from "@/lib/seo/page-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildStorePageMetadata({
   title: "Shipping Policy",
   description:
-    "Learn about Indrani Creations order processing, dispatch timelines, prepaid payment verification, and shipping.",
-};
+    "Learn about Indrani Creations order processing, 2–4 business day dispatch timelines, prepaid UPI verification, and delivery across India.",
+  canonical: "/shipping",
+});
 
 export default function ShippingPage() {
   return (

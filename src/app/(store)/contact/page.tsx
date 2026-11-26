@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buildStorePageMetadata } from "@/lib/seo/page-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildStorePageMetadata({
   title: "Contact Us",
   description:
-    "Get in touch with Indrani Creations for order enquiries, sizing questions, or exchange assistance.",
-};
+    "Get in touch with Indrani Creations for saree and jewellery enquiries, order updates, UPI verification, or exchange assistance.",
+  canonical: "/contact",
+});
 
 export default function ContactPage() {
   const contactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL?.trim() || null;

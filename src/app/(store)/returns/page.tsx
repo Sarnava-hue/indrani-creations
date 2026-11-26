@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { buildStorePageMetadata } from "@/lib/seo/page-metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildStorePageMetadata({
   title: "Exchange Policy",
   description:
-    "Read the Indrani Creations exchange policy for damaged or defective deliveries.",
-};
+    "Read the Indrani Creations 15-day exchange policy for damaged or defective saree and jewellery deliveries.",
+  canonical: "/returns",
+});
 
 export default function ReturnsPage() {
   return (

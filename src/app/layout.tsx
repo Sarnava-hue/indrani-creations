@@ -3,6 +3,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/store/cart-provider";
 import { SITE_URL } from "@/lib/config/site";
+import {
+  DEFAULT_OG_IMAGE_ALT,
+  DEFAULT_OG_IMAGE_PATH,
+} from "@/lib/seo/page-metadata";
 import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
@@ -22,12 +26,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
 
   title: {
-    default: "Indrani Creations | Shop Sarees Online",
+    default: "Indrani Creations | Handcrafted Sarees, Bangles & Jewellery",
     template: "%s | Indrani Creations",
   },
 
   description:
-    "Discover beautiful sarees for festivals, weddings, celebrations, and everyday elegance at Indrani Creations. Explore our collection and shop online.",
+    "Discover handcrafted sarees, artisanal bangles, earrings, and necklaces for weddings, festivals, and everyday elegance at Indrani Creations.",
 
   applicationName: "Indrani Creations",
 
@@ -37,17 +41,29 @@ export const metadata: Metadata = {
     type: "website",
     url: SITE_URL,
     siteName: "Indrani Creations",
-    title: "Indrani Creations | Shop Sarees Online",
+    title: "Indrani Creations | Handcrafted Sarees, Bangles & Jewellery",
     description:
-      "Explore sarees for weddings, festivals, celebrations, and everyday elegance at Indrani Creations.",
+      "Explore handcrafted sarees, artisanal bangles, earrings, and necklaces for weddings, festivals, and everyday elegance across India.",
     locale: "en_IN",
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE_PATH,
+        alt: DEFAULT_OG_IMAGE_ALT,
+      },
+    ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title: "Indrani Creations | Shop Sarees Online",
+    title: "Indrani Creations | Handcrafted Sarees, Bangles & Jewellery",
     description:
-      "Discover beautiful sarees for every occasion at Indrani Creations.",
+      "Discover handcrafted sarees, bangles, and Indian jewellery for every occasion at Indrani Creations.",
+    images: [
+      {
+        url: DEFAULT_OG_IMAGE_PATH,
+        alt: DEFAULT_OG_IMAGE_ALT,
+      },
+    ],
   },
 
   robots: {

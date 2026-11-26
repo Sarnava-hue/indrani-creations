@@ -1,5 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
+import type { Metadata } from "next";
+import { buildStorePageMetadata } from "@/lib/seo/page-metadata";
 
 const services = [
   {
@@ -161,11 +163,14 @@ function CheckMark() {
   );
 }
 
-export const metadata = {
-  title: "About Us | Indrani Creations",
+export const metadata: Metadata = buildStorePageMetadata({
+  title: "Our Story & Craftsmanship",
   description:
-    "Discover the story, craftsmanship, and collections behind Indrani Creations.",
-};
+    "Discover the heritage, craftsmanship, and decade-long trust behind Indrani Creations sarees, artisanal bangles, and handcrafted Indian jewellery.",
+  canonical: "/about",
+  imageUrl: "/images/about/brand-story.jpeg",
+  imageAlt: "Indrani Creations traditional saree craftsmanship",
+});
 
 export default function AboutPage() {
   return (

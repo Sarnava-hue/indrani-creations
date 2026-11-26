@@ -1,9 +1,19 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ProductCard } from "@/components/store/product-card";
 import { db } from "@/lib/db";
 import { getActiveCategories } from "@/lib/store/categories";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
+import { buildStorePageMetadata } from "@/lib/seo/page-metadata";
 import Image from "next/image";
+
+export const metadata: Metadata = buildStorePageMetadata({
+  title: "Indrani Creations | Handcrafted Sarees, Bangles & Jewellery Online",
+  description:
+    "Shop handcrafted sarees, artisanal bangles, oxidized jhumkas, and festive necklaces online at Indrani Creations. Curated Indian elegance with prepaid UPI checkout across India.",
+  canonical: "/",
+  absoluteTitle: true,
+});
 
 const baseCollections = [
   {
@@ -202,15 +212,15 @@ export default async function HomePage() {
       {/* INTRO */}
       <section className="mx-auto max-w-[1000px] px-6 py-20 text-center md:py-28">
         <p className="text-[10px] uppercase tracking-[0.35em] text-[#9a8068]">
-          More than what you wear
+          Handcrafted sarees, bangles &amp; jewellery
         </p>
         <h2 className="mx-auto mt-5 max-w-3xl font-serif text-4xl leading-tight md:text-6xl">
-          Every detail has a story.
+          Handcrafted sarees &amp; jewellery, crafted with a story.
         </h2>
         <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-[#766d62] md:text-base">
-          Discover the beauty of Indian dressing, from the elegance of a saree
-          to the finishing touch of handcrafted jewellery. Find something that
-          feels distinctly you.
+          Discover the beauty of Indian dressing — from wedding and festive silk
+          sarees to artisanal bangles, oxidized jhumkas, and statement necklaces
+          made to feel distinctly you.
         </p>
       </section>
 

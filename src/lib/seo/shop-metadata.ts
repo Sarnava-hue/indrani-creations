@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { SITE_URL } from "@/lib/config/site";
+import { buildStorePageMetadata } from "@/lib/seo/page-metadata";
 
 export const ALLOWED_SHOP_SORTS = [
   "newest",
@@ -107,16 +107,12 @@ export function buildShopMetadata(params: ShopSearchParamsInput): Metadata {
       : "Shop Sarees & Jewellery Online";
 
     return {
-      title,
-      description: defaultDescription,
-      openGraph: {
-        type: "website",
-        url: `${SITE_URL}/shop`,
-        siteName: "Indrani Creations",
-        title: `${title} | Indrani Creations`,
+      ...buildStorePageMetadata({
+        title,
         description: defaultDescription,
-        locale: "en_IN",
-      },
+        canonical: "/shop",
+      }),
+      alternates: undefined,
       robots: {
         index: false,
         follow: true,
@@ -132,29 +128,12 @@ export function buildShopMetadata(params: ShopSearchParamsInput): Metadata {
       ? `Shop Sarees & Jewellery Online — Page ${currentPage}`
       : "Shop Sarees & Jewellery Online";
 
-  const fullTitle = `${title} | Indrani Creations`;
-
   return {
-    title,
-    description: defaultDescription,
-    alternates: {
+    ...buildStorePageMetadata({
+      title,
+      description: defaultDescription,
       canonical,
-    },
-    openGraph: {
-      type: "website",
-      url: `${SITE_URL}${canonical}`,
-      siteName: "Indrani Creations",
-      title: fullTitle,
-      description:
-        "Discover sarees and jewellery for special occasions and everyday elegance. Explore the collection at Indrani Creations.",
-      locale: "en_IN",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: fullTitle,
-      description:
-        "Explore sarees, bangles, earrings, and necklaces at Indrani Creations.",
-    },
+    }),
     robots: {
       index: true,
       follow: true,

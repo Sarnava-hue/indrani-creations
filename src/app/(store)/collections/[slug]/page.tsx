@@ -7,6 +7,10 @@ import { db } from "@/lib/db";
 import { ProductCard } from "@/components/store/product-card";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
 import { SITE_URL } from "@/lib/config/site";
+import {
+  buildCollectionDescription,
+  buildStorePageMetadata,
+} from "@/lib/seo/page-metadata";
 
 type PageProps = {
   params: Promise<{
@@ -85,40 +89,18 @@ export async function generateMetadata({
   const collectionImage =
     category.imageUrl?.trim() || products[0]?.primaryImage?.url;
 
-  const imageUrl = collectionImage
-    ? new URL(collectionImage, SITE_URL).href
-    : undefined;
+  const description = buildCollectionDescription(
+    category.name,
+    category.description,
+  );
 
-  const description =
-    category.description?.trim() ||
-    `Explore the ${category.name} collection at Indrani Creations. Discover beautiful sarees for celebrations, special occasions, and everyday elegance. Shop online.`;
-
-  const title = `${category.name} | Shop Online`;
-
-  const canonical = `/collections/${category.slug}`;
-
-  return {
-    title,
+  return buildStorePageMetadata({
+    title: `${category.name} | Shop Online`,
     description,
-    alternates: {
-      canonical,
-    },
-    openGraph: {
-      type: "website",
-      url: `${SITE_URL}${canonical}`,
-      siteName: "Indrani Creations",
-      title: `${title} | Indrani Creations`,
-      description,
-      locale: "en_IN",
-      ...(imageUrl ? { images: [{ url: imageUrl, alt: category.name }] } : {}),
-    },
-    twitter: {
-      card: imageUrl ? "summary_large_image" : "summary",
-      title: `${title} | Indrani Creations`,
-      description,
-      ...(imageUrl ? { images: [{ url: imageUrl, alt: category.name }] } : {}),
-    },
-  };
+    canonical: `/collections/${category.slug}`,
+    imageUrl: collectionImage,
+    imageAlt: category.name,
+  });
 }
 
 export default async function CollectionPage({ params }: PageProps) {
@@ -131,6 +113,10 @@ export default async function CollectionPage({ params }: PageProps) {
   }
 
   const { category, products } = result;
+  const introDescription = buildCollectionDescription(
+    category.name,
+    category.description,
+  );
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -184,11 +170,9 @@ export default async function CollectionPage({ params }: PageProps) {
               {category.name}
             </h1>
 
-            {category.description ? (
-              <p className="mt-6 max-w-2xl text-sm leading-7 text-neutral-500 sm:text-base">
-                {category.description}
-              </p>
-            ) : null}
+            <p className="mt-6 max-w-2xl text-sm leading-7 text-neutral-500 sm:text-base">
+              {introDescription}
+            </p>
           </div>
         </div>
       </section>

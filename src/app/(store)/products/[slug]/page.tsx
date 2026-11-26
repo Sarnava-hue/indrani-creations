@@ -9,6 +9,11 @@ import { ProductGallery } from "@/components/store/product-gallery";
 import { ProductCard } from "@/components/store/product-card";
 import { attachPrimaryImages } from "@/lib/store/product-queries";
 import { SITE_URL } from "@/lib/config/site";
+import {
+  buildProductMetaDescription,
+  buildStorePageMetadata,
+} from "@/lib/seo/page-metadata";
+import type { Metadata } from "next";
 
 type ProductPageProps = {
   params: Promise<{
@@ -105,51 +110,33 @@ const getProduct = cache(async (slug: string) => {
   };
 });
 
-export async function generateMetadata({ params }: ProductPageProps) {
+export async function generateMetadata({
+  params,
+}: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
 
   const result = await getProduct(slug);
 
   if (!result) {
     return {
-      title: "Product Not Found | Indrani Creations",
+      title: "Product Not Found",
+      robots: {
+        index: false,
+        follow: true,
+      },
     };
   }
 
-  const { product } = result;
+  const { product, category, primaryImage } = result;
+  const description = buildProductMetaDescription(product, category?.name);
 
-  const description =
-    product.shortDescription?.trim() ||
-    `Discover ${product.name} from Indrani Creations.`;
-
-  const productUrl = `${SITE_URL}/products/${product.slug}`;
-
-  const resultImage = result.primaryImage?.url;
-  const imageUrl = resultImage
-    ? new URL(resultImage, SITE_URL).href
-    : undefined;
-
-  return {
-    title: `${product.name} | Indrani Creations`,
+  return buildStorePageMetadata({
+    title: product.name,
     description,
-    alternates: {
-      canonical: `/products/${product.slug}`,
-    },
-    openGraph: {
-      title: `${product.name} | Indrani Creations`,
-      description,
-      type: "website",
-      url: productUrl,
-      siteName: "Indrani Creations",
-      ...(imageUrl ? { images: [{ url: imageUrl, alt: product.name }] } : {}),
-    },
-    twitter: {
-      card: imageUrl ? "summary_large_image" : "summary",
-      title: `${product.name} | Indrani Creations`,
-      description,
-      ...(imageUrl ? { images: [{ url: imageUrl, alt: product.name }] } : {}),
-    },
-  };
+    canonical: `/products/${product.slug}`,
+    imageUrl: primaryImage?.url,
+    imageAlt: primaryImage?.altText ?? product.name,
+  });
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
